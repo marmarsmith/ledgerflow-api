@@ -24,20 +24,36 @@ import com.marcel.ledgerflow.exception.GlobalExceptionHandler;
 import org.springframework.validation.beanvalidation.LocalValidatorFactoryBean;
 import org.junit.jupiter.api.AfterEach;
 
+import com.marcel.ledgerflow.service.AuthService;
+import com.marcel.ledgerflow.service.JwtService;
+import com.marcel.ledgerflow.dto.LoginRequest;
+import com.marcel.ledgerflow.dto.LoginResponse;
+import com.marcel.ledgerflow.entity.User;
+import com.marcel.ledgerflow.exception.InvalidCredentialsException;
+
 class UserControllerTest {
 
     private MockMvc mockMvc;
     private UserService userService;
+    private AuthService authService;
+    private JwtService jwtService;
     private ObjectMapper objectMapper;
     private LocalValidatorFactoryBean validator;
+
 
 
 
     @BeforeEach
     void setUp() {
         userService = mock(UserService.class);
+        authService = mock(AuthService.class);
+        jwtService = mock(JwtService.class);
 
-        UserController userController = new UserController(userService);
+        UserController userController = new UserController(
+                userService,
+                authService,
+                jwtService
+        );
 
         validator = new LocalValidatorFactoryBean();
         validator.afterPropertiesSet();
@@ -50,6 +66,7 @@ class UserControllerTest {
 
         objectMapper = new ObjectMapper();
     }
+
 
 
     @AfterEach
@@ -182,6 +199,89 @@ class UserControllerTest {
 
         verifyNoInteractions(userService);
     }
+
+
+    @Test
+    void shouldReturn200AndJwtWhenLoginIsSuccessful() throws Exception {
+        // Arrange
+        LoginRequest request = new LoginRequest(
+                "john.doe@example.com",
+                "SecurePass123"
+        );
+
+        User user = new User();
+        user.setId(5L);
+        user.setEmail("john.doe@example.com");
+
+        LoginResponse response = new LoginResponse(
+                "mock-jwt-token",
+                "Bearer",
+                3600
+        );
+
+        when(authService.authenticate(any(LoginRequest.class)))
+                .thenReturn(user);
+
+        when(jwtService.generateToken(user))
+                .thenReturn(response);
+
+        // Act & Assert
+        mockMvc.perform(post("/api/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.accessToken").value("mock-jwt-token"))
+                .andExpect(jsonPath("$.tokenType").value("Bearer"))
+                .andExpect(jsonPath("$.expiresIn").value(3600));
+
+        verify(authService).authenticate(any(LoginRequest.class));
+        verify(jwtService).generateToken(user);
+    }
+
+
+    @Test
+    void shouldReturn401WhenLoginCredentialsAreInvalid() throws Exception {
+        // Arrange
+        LoginRequest request = new LoginRequest(
+                "john.doe@example.com",
+                "WrongPassword123"
+        );
+
+        when(authService.authenticate(any(LoginRequest.class)))
+                .thenThrow(new InvalidCredentialsException());
+
+        // Act & Assert
+        mockMvc.perform(post("/api/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.error")
+                        .value("Invalid email or password"));
+
+        verify(authService).authenticate(any(LoginRequest.class));
+        verifyNoInteractions(jwtService);
+    }
+
+
+    @Test
+    void shouldReturn400WhenLoginEmailIsInvalid() throws Exception {
+        // Arrange
+        LoginRequest request = new LoginRequest(
+                "not-an-email",
+                "SecurePass123"
+        );
+
+        // Act & Assert
+        mockMvc.perform(post("/api/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").exists());
+
+        verifyNoInteractions(authService, jwtService);
+    }
+
+
 
 
 
