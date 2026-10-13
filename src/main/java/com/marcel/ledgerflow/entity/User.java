@@ -3,6 +3,8 @@ package com.marcel.ledgerflow.entity;
 
 import jakarta.persistence.*;
 import java.time.OffsetDateTime;
+import org.hibernate.annotations.Generated;
+import org.hibernate.generator.EventType;
 
 @Entity
 @Table(name = "users")
@@ -24,9 +26,15 @@ public class User {
     @Column(name = "last_name", nullable = false)
     private String lastName;
 
-    @Column(name = "created_at", nullable = false,
-            insertable = false, updatable = false)
+    @Generated(event = EventType.INSERT)
+    @Column(
+            name = "created_at",
+            nullable = false,
+            insertable = false,
+            updatable = false
+    )
     private OffsetDateTime createdAt;
+
 
     public User() {
     }
