@@ -82,4 +82,13 @@ public class GlobalExceptionHandler {
                 .body(exception.getMessage());
     }
 
+    @ExceptionHandler(CategoryTypeMismatchException.class)
+    public ResponseEntity<String> handleCategoryTypeMismatch(
+            CategoryTypeMismatchException ex) {
+
+        return ResponseEntity
+                .status(HttpStatus.BAD_REQUEST)
+                .body(ex.getMessage());
+    }
+
 }

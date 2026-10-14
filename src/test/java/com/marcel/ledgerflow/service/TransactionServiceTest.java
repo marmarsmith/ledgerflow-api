@@ -27,6 +27,12 @@ import static org.mockito.Mockito.*;
 import java.util.List;
 import com.marcel.ledgerflow.exception.TransactionNotFoundException;
 import com.marcel.ledgerflow.dto.UpdateTransactionRequest;
+import com.marcel.ledgerflow.repository.CategoryRepository;
+
+import com.marcel.ledgerflow.entity.Category;
+import org.mockito.ArgumentCaptor;
+import com.marcel.ledgerflow.exception.CategoryNotFoundException;
+import com.marcel.ledgerflow.exception.CategoryTypeMismatchException;
 
 @ExtendWith(MockitoExtension.class)
 class TransactionServiceTest {
@@ -36,6 +42,9 @@ class TransactionServiceTest {
 
     @Mock
     private AccountRepository accountRepository;
+
+    @Mock
+    private CategoryRepository categoryRepository;
 
     @InjectMocks
     private TransactionService transactionService;
@@ -53,7 +62,8 @@ class TransactionServiceTest {
                 TransactionType.EXPENSE,
                 new BigDecimal("85.50"),
                 "Weekly groceries",
-                LocalDate.of(2026, 10, 14)
+                LocalDate.of(2026, 10, 14),
+                null
         );
     }
 
@@ -295,7 +305,8 @@ class TransactionServiceTest {
                 TransactionType.EXPENSE,
                 new BigDecimal("95.75"),
                 "Groceries and household supplies",
-                LocalDate.of(2026, 10, 14)
+                LocalDate.of(2026, 10, 14),
+                null
         );
 
         when(accountRepository.findByIdAndUserId(accountId, userId))
@@ -337,7 +348,8 @@ class TransactionServiceTest {
                 TransactionType.EXPENSE,
                 new BigDecimal("95.75"),
                 "Updated groceries",
-                LocalDate.of(2026, 10, 14)
+                LocalDate.of(2026, 10, 14),
+                null
         );
 
         when(accountRepository.findByIdAndUserId(accountId, userId))
@@ -371,7 +383,8 @@ class TransactionServiceTest {
                 TransactionType.EXPENSE,
                 new BigDecimal("95.75"),
                 "Updated groceries",
-                LocalDate.of(2026, 10, 14)
+                LocalDate.of(2026, 10, 14),
+                null
         );
 
         when(accountRepository.findByIdAndUserId(accountId, userId))
@@ -477,5 +490,490 @@ class TransactionServiceTest {
 
         verify(transactionRepository, never())
                 .delete(any(Transaction.class));
+    }
+
+    @Test
+    void shouldCreateTransactionWithCategory() {
+
+        // Arrange
+        Long userId = 5L;
+        Long accountId = 10L;
+        Long categoryId = 3L;
+
+        CreateTransactionRequest categorizedRequest =
+                new CreateTransactionRequest(
+                        TransactionType.EXPENSE,
+                        new BigDecimal("85.50"),
+                        "Weekly groceries",
+                        LocalDate.of(2026, 10, 14),
+                        categoryId
+                );
+
+        Category category = new Category();
+        category.setId(categoryId);
+        category.setName("Groceries");
+        category.setType(TransactionType.EXPENSE);
+
+        when(accountRepository.findByIdAndUserId(accountId, userId))
+                .thenReturn(Optional.of(account));
+
+        when(categoryRepository.findByIdAndUserId(categoryId, userId))
+                .thenReturn(Optional.of(category));
+
+        when(transactionRepository.saveAndFlush(any(Transaction.class)))
+                .thenAnswer(invocation -> {
+                    Transaction transaction = invocation.getArgument(0);
+                    transaction.setId(100L);
+                    transaction.setCreatedAt(
+                            OffsetDateTime.parse("2026-10-14T09:30:00-05:00")
+                    );
+                    return transaction;
+                });
+
+        // Act
+        TransactionResponse response =
+                transactionService.createTransaction(
+                        userId,
+                        accountId,
+                        categorizedRequest
+                );
+
+        // Assert
+        assertEquals(100L, response.id());
+        assertEquals(categoryId, response.categoryId());
+
+        ArgumentCaptor<Transaction> transactionCaptor =
+                ArgumentCaptor.forClass(Transaction.class);
+
+        verify(transactionRepository)
+                .saveAndFlush(transactionCaptor.capture());
+
+        Transaction savedTransaction = transactionCaptor.getValue();
+
+        assertNotNull(savedTransaction.getCategory());
+        assertEquals(categoryId, savedTransaction.getCategory().getId());
+        assertEquals("Groceries", savedTransaction.getCategory().getName());
+
+        verify(categoryRepository)
+                .findByIdAndUserId(categoryId, userId);
+    }
+
+    @Test
+    void shouldRejectTransactionCreationWithAnotherUsersCategory() {
+
+        // Arrange
+        Long userId = 5L;
+        Long accountId = 10L;
+        Long categoryId = 3L;
+
+        CreateTransactionRequest categorizedRequest =
+                new CreateTransactionRequest(
+                        TransactionType.EXPENSE,
+                        new BigDecimal("85.50"),
+                        "Weekly groceries",
+                        LocalDate.of(2026, 10, 14),
+                        categoryId
+                );
+
+        when(accountRepository.findByIdAndUserId(accountId, userId))
+                .thenReturn(Optional.of(account));
+
+        when(categoryRepository.findByIdAndUserId(categoryId, userId))
+                .thenReturn(Optional.empty());
+
+        // Act & Assert
+        assertThrows(
+                CategoryNotFoundException.class,
+                () -> transactionService.createTransaction(
+                        userId,
+                        accountId,
+                        categorizedRequest
+                )
+        );
+
+        verify(accountRepository)
+                .findByIdAndUserId(accountId, userId);
+
+        verify(categoryRepository)
+                .findByIdAndUserId(categoryId, userId);
+
+        verify(transactionRepository, never())
+                .saveAndFlush(any(Transaction.class));
+    }
+
+    @Test
+    void shouldRejectTransactionCreationWithMismatchedCategoryType() {
+
+        // Arrange
+        Long userId = 5L;
+        Long accountId = 10L;
+        Long categoryId = 7L;
+
+        CreateTransactionRequest categorizedRequest =
+                new CreateTransactionRequest(
+                        TransactionType.EXPENSE,
+                        new BigDecimal("85.50"),
+                        "Weekly groceries",
+                        LocalDate.of(2026, 10, 14),
+                        categoryId
+                );
+
+        Category category = new Category();
+        category.setId(categoryId);
+        category.setName("Salary");
+        category.setType(TransactionType.INCOME);
+
+        when(accountRepository.findByIdAndUserId(accountId, userId))
+                .thenReturn(Optional.of(account));
+
+        when(categoryRepository.findByIdAndUserId(categoryId, userId))
+                .thenReturn(Optional.of(category));
+
+        // Act & Assert
+        assertThrows(
+                CategoryTypeMismatchException.class,
+                () -> transactionService.createTransaction(
+                        userId,
+                        accountId,
+                        categorizedRequest
+                )
+        );
+
+        verify(accountRepository)
+                .findByIdAndUserId(accountId, userId);
+
+        verify(categoryRepository)
+                .findByIdAndUserId(categoryId, userId);
+
+        verify(transactionRepository, never())
+                .saveAndFlush(any(Transaction.class));
+    }
+
+    @Test
+    void shouldAssignCategoryWhenUpdatingTransaction() {
+
+        // Arrange
+        Long userId = 5L;
+        Long accountId = 10L;
+        Long transactionId = 100L;
+        Long categoryId = 7L;
+
+        Transaction transaction = new Transaction();
+        transaction.setId(transactionId);
+        transaction.setAccount(account);
+        transaction.setType(TransactionType.EXPENSE);
+        transaction.setAmount(new BigDecimal("85.50"));
+        transaction.setDescription("Weekly groceries");
+        transaction.setTransactionDate(LocalDate.of(2026, 10, 14));
+        transaction.setCreatedAt(
+                OffsetDateTime.parse("2026-10-14T09:30:00-05:00")
+        );
+
+        Category category = new Category();
+        category.setId(categoryId);
+        category.setName("Groceries");
+        category.setType(TransactionType.EXPENSE);
+
+        UpdateTransactionRequest request = new UpdateTransactionRequest(
+                TransactionType.EXPENSE,
+                new BigDecimal("95.00"),
+                "Updated grocery shopping",
+                LocalDate.of(2026, 10, 15),
+                categoryId
+        );
+
+        when(accountRepository.findByIdAndUserId(accountId, userId))
+                .thenReturn(Optional.of(account));
+
+        when(transactionRepository.findByIdAndAccountId(transactionId, accountId))
+                .thenReturn(Optional.of(transaction));
+
+        when(categoryRepository.findByIdAndUserId(categoryId, userId))
+                .thenReturn(Optional.of(category));
+
+        when(transactionRepository.saveAndFlush(any(Transaction.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        // Act
+        TransactionResponse response = transactionService.updateTransaction(
+                userId,
+                accountId,
+                transactionId,
+                request
+        );
+
+        // Assert
+        assertEquals(categoryId, response.categoryId());
+        assertEquals(new BigDecimal("95.00"), response.amount());
+        assertEquals("Updated grocery shopping", response.description());
+
+        ArgumentCaptor<Transaction> captor =
+                ArgumentCaptor.forClass(Transaction.class);
+
+        verify(transactionRepository).saveAndFlush(captor.capture());
+
+        Transaction savedTransaction = captor.getValue();
+
+        assertNotNull(savedTransaction.getCategory());
+        assertEquals(categoryId, savedTransaction.getCategory().getId());
+
+        verify(categoryRepository)
+                .findByIdAndUserId(categoryId, userId);
+    }
+
+    @Test
+    void shouldReplaceCategoryWhenUpdatingTransaction() {
+
+        // Arrange
+        Long userId = 5L;
+        Long accountId = 10L;
+        Long transactionId = 100L;
+
+        Long oldCategoryId = 7L;
+        Long newCategoryId = 9L;
+
+        Category oldCategory = new Category();
+        oldCategory.setId(oldCategoryId);
+        oldCategory.setName("Groceries");
+        oldCategory.setType(TransactionType.EXPENSE);
+
+        Category newCategory = new Category();
+        newCategory.setId(newCategoryId);
+        newCategory.setName("Dining Out");
+        newCategory.setType(TransactionType.EXPENSE);
+
+        Transaction transaction = new Transaction();
+        transaction.setId(transactionId);
+        transaction.setAccount(account);
+        transaction.setType(TransactionType.EXPENSE);
+        transaction.setAmount(new BigDecimal("85.50"));
+        transaction.setDescription("Dinner");
+        transaction.setTransactionDate(LocalDate.of(2026, 10, 14));
+        transaction.setCreatedAt(
+                OffsetDateTime.parse("2026-10-14T09:30:00-05:00")
+        );
+        transaction.setCategory(oldCategory);
+
+        UpdateTransactionRequest request = new UpdateTransactionRequest(
+                TransactionType.EXPENSE,
+                new BigDecimal("95.00"),
+                "Dinner with friends",
+                LocalDate.of(2026, 10, 15),
+                newCategoryId
+        );
+
+        when(accountRepository.findByIdAndUserId(accountId, userId))
+                .thenReturn(Optional.of(account));
+
+        when(transactionRepository.findByIdAndAccountId(transactionId, accountId))
+                .thenReturn(Optional.of(transaction));
+
+        when(categoryRepository.findByIdAndUserId(newCategoryId, userId))
+                .thenReturn(Optional.of(newCategory));
+
+        when(transactionRepository.saveAndFlush(any(Transaction.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        // Act
+        TransactionResponse response = transactionService.updateTransaction(
+                userId,
+                accountId,
+                transactionId,
+                request
+        );
+
+        // Assert
+        assertEquals(newCategoryId, response.categoryId());
+        assertEquals(new BigDecimal("95.00"), response.amount());
+        assertEquals("Dinner with friends", response.description());
+
+        ArgumentCaptor<Transaction> captor =
+                ArgumentCaptor.forClass(Transaction.class);
+
+        verify(transactionRepository).saveAndFlush(captor.capture());
+
+        Transaction savedTransaction = captor.getValue();
+
+        assertNotNull(savedTransaction.getCategory());
+        assertEquals(newCategoryId, savedTransaction.getCategory().getId());
+        assertEquals("Dining Out", savedTransaction.getCategory().getName());
+
+        verify(categoryRepository)
+                .findByIdAndUserId(newCategoryId, userId);
+    }
+
+    @Test
+    void shouldRemoveCategoryWhenUpdatingTransaction() {
+
+        // Arrange
+        Long userId = 5L;
+        Long accountId = 10L;
+        Long transactionId = 100L;
+
+        Category existingCategory = new Category();
+        existingCategory.setId(7L);
+        existingCategory.setName("Groceries");
+        existingCategory.setType(TransactionType.EXPENSE);
+
+        Transaction transaction = new Transaction();
+        transaction.setId(transactionId);
+        transaction.setAccount(account);
+        transaction.setType(TransactionType.EXPENSE);
+        transaction.setAmount(new BigDecimal("85.50"));
+        transaction.setDescription("Weekly groceries");
+        transaction.setTransactionDate(LocalDate.of(2026, 10, 14));
+        transaction.setCreatedAt(
+                OffsetDateTime.parse("2026-10-14T09:30:00-05:00")
+        );
+        transaction.setCategory(existingCategory);
+
+        UpdateTransactionRequest request = new UpdateTransactionRequest(
+                TransactionType.EXPENSE,
+                new BigDecimal("85.50"),
+                "Uncategorized expense",
+                LocalDate.of(2026, 10, 14),
+                null
+        );
+
+        when(accountRepository.findByIdAndUserId(accountId, userId))
+                .thenReturn(Optional.of(account));
+
+        when(transactionRepository.findByIdAndAccountId(transactionId, accountId))
+                .thenReturn(Optional.of(transaction));
+
+        when(transactionRepository.saveAndFlush(any(Transaction.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        // Act
+        TransactionResponse response = transactionService.updateTransaction(
+                userId,
+                accountId,
+                transactionId,
+                request
+        );
+
+        // Assert
+        assertNull(response.categoryId());
+
+        ArgumentCaptor<Transaction> captor =
+                ArgumentCaptor.forClass(Transaction.class);
+
+        verify(transactionRepository).saveAndFlush(captor.capture());
+
+        Transaction savedTransaction = captor.getValue();
+
+        assertNull(savedTransaction.getCategory());
+
+        verifyNoInteractions(categoryRepository);
+    }
+
+    @Test
+    void shouldRejectTransactionUpdateWithAnotherUsersCategory() {
+
+        // Arrange
+        Long userId = 5L;
+        Long accountId = 10L;
+        Long transactionId = 100L;
+        Long categoryId = 7L;
+
+        Transaction transaction = new Transaction();
+        transaction.setId(transactionId);
+        transaction.setAccount(account);
+        transaction.setType(TransactionType.EXPENSE);
+        transaction.setAmount(new BigDecimal("85.50"));
+        transaction.setDescription("Weekly groceries");
+        transaction.setTransactionDate(LocalDate.of(2026, 10, 14));
+
+        UpdateTransactionRequest request = new UpdateTransactionRequest(
+                TransactionType.EXPENSE,
+                new BigDecimal("95.00"),
+                "Updated groceries",
+                LocalDate.of(2026, 10, 15),
+                categoryId
+        );
+
+        when(accountRepository.findByIdAndUserId(accountId, userId))
+                .thenReturn(Optional.of(account));
+
+        when(transactionRepository.findByIdAndAccountId(transactionId, accountId))
+                .thenReturn(Optional.of(transaction));
+
+        // Category 7 is not accessible to User 5
+        when(categoryRepository.findByIdAndUserId(categoryId, userId))
+                .thenReturn(Optional.empty());
+
+        // Act & Assert
+        assertThrows(
+                CategoryNotFoundException.class,
+                () -> transactionService.updateTransaction(
+                        userId,
+                        accountId,
+                        transactionId,
+                        request
+                )
+        );
+
+        verify(categoryRepository)
+                .findByIdAndUserId(categoryId, userId);
+
+        verify(transactionRepository, never())
+                .saveAndFlush(any(Transaction.class));
+    }
+
+    @Test
+    void shouldRejectTransactionUpdateWithMismatchedCategoryType() {
+
+        // Arrange
+        Long userId = 5L;
+        Long accountId = 10L;
+        Long transactionId = 100L;
+        Long categoryId = 7L;
+
+        Transaction transaction = new Transaction();
+        transaction.setId(transactionId);
+        transaction.setAccount(account);
+        transaction.setType(TransactionType.EXPENSE);
+        transaction.setAmount(new BigDecimal("85.50"));
+        transaction.setDescription("Weekly groceries");
+        transaction.setTransactionDate(LocalDate.of(2026, 10, 14));
+
+        Category category = new Category();
+        category.setId(categoryId);
+        category.setName("Salary");
+        category.setType(TransactionType.INCOME);
+
+        UpdateTransactionRequest request = new UpdateTransactionRequest(
+                TransactionType.EXPENSE,
+                new BigDecimal("95.00"),
+                "Updated groceries",
+                LocalDate.of(2026, 10, 15),
+                categoryId
+        );
+
+        when(accountRepository.findByIdAndUserId(accountId, userId))
+                .thenReturn(Optional.of(account));
+
+        when(transactionRepository.findByIdAndAccountId(transactionId, accountId))
+                .thenReturn(Optional.of(transaction));
+
+        when(categoryRepository.findByIdAndUserId(categoryId, userId))
+                .thenReturn(Optional.of(category));
+
+        // Act & Assert
+        assertThrows(
+                CategoryTypeMismatchException.class,
+                () -> transactionService.updateTransaction(
+                        userId,
+                        accountId,
+                        transactionId,
+                        request
+                )
+        );
+
+        verify(categoryRepository)
+                .findByIdAndUserId(categoryId, userId);
+
+        verify(transactionRepository, never())
+                .saveAndFlush(any(Transaction.class));
     }
 }
