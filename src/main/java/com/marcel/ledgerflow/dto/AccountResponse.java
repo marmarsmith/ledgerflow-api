@@ -1,4 +1,3 @@
-
 package com.marcel.ledgerflow.dto;
 
 import com.marcel.ledgerflow.entity.AccountType;
@@ -11,5 +10,6 @@ public record AccountResponse(
         String name,
         AccountType type,
         BigDecimal initialBalance,
+        BigDecimal currentBalance,
         OffsetDateTime createdAt
 ) {}

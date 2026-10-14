@@ -86,6 +86,7 @@ class AccountControllerTest {
                 "My Checking Account",
                 AccountType.CHECKING,
                 new BigDecimal("1500.00"),
+                new BigDecimal("1500.00"),
                 OffsetDateTime.parse("2026-10-13T12:00:00Z")
         );
 
@@ -172,6 +173,7 @@ class AccountControllerTest {
                 "My Checking Account",
                 AccountType.CHECKING,
                 new BigDecimal("1500.00"),
+                new BigDecimal("1500.00"),
                 OffsetDateTime.parse("2026-10-13T12:00:00Z")
         );
 
@@ -180,6 +182,7 @@ class AccountControllerTest {
                 "Emergency Savings",
                 AccountType.SAVINGS,
                 new BigDecimal("5000.00"),
+                new BigDecimal("1500.00"),
                 OffsetDateTime.parse("2026-10-13T12:30:00Z")
         );
 
@@ -259,6 +262,7 @@ class AccountControllerTest {
                 accountId,
                 "My Checking Account",
                 AccountType.CHECKING,
+                new BigDecimal("1500.00"),
                 new BigDecimal("1500.00"),
                 OffsetDateTime.parse("2026-10-13T12:00:00Z")
         );
@@ -344,6 +348,7 @@ class AccountControllerTest {
                 "Emergency Savings",
                 AccountType.SAVINGS,
                 new BigDecimal("2500.00"),
+                new BigDecimal("1500.00"),
                 OffsetDateTime.parse("2026-10-13T12:00:00Z")
         );
 

@@ -27,6 +27,9 @@ import com.marcel.ledgerflow.exception.AccountNotFoundException;
 
 import com.marcel.ledgerflow.dto.UpdateAccountRequest;
 import org.mockito.ArgumentCaptor;
+import com.marcel.ledgerflow.repository.TransactionRepository;
+import com.marcel.ledgerflow.entity.TransactionType;
+import org.junit.jupiter.api.BeforeEach;
 
 
 
@@ -39,8 +42,22 @@ class AccountServiceTest {
     @Mock
     private UserRepository userRepository;
 
+    @Mock
+    private TransactionRepository transactionRepository;
+
     @InjectMocks
     private AccountService accountService;
+
+    @BeforeEach
+    void setUp() {
+
+        lenient().when(
+                transactionRepository.calculateNetTransactionAmount(
+                        any(Long.class),
+                        eq(TransactionType.INCOME)
+                )
+        ).thenReturn(BigDecimal.ZERO);
+    }
 
     @Test
     void shouldCreateAccountForAuthenticatedUser() {
@@ -334,5 +351,74 @@ class AccountServiceTest {
         verifyNoInteractions(userRepository);
     }
 
+    @Test
+    void shouldCalculateCurrentBalanceUsingTransactions() {
+
+        // Arrange
+        Long accountId = 10L;
+        Long userId = 5L;
+
+        Account account = new Account();
+        account.setId(accountId);
+        account.setName("My Checking Account");
+        account.setType(AccountType.CHECKING);
+        account.setInitialBalance(new BigDecimal("1000.00"));
+
+        when(accountRepository.findByIdAndUserId(accountId, userId))
+                .thenReturn(Optional.of(account));
+
+        // $2500 income - $350 expenses = $2150 net change
+        when(transactionRepository.calculateNetTransactionAmount(
+                accountId,
+                TransactionType.INCOME
+        )).thenReturn(new BigDecimal("2150.00"));
+
+        // Act
+        AccountResponse response =
+                accountService.getAccountById(accountId, userId);
+
+        // Assert
+        assertEquals(
+                new BigDecimal("3150.00"),
+                response.currentBalance()
+        );
+
+        verify(transactionRepository).calculateNetTransactionAmount(
+                accountId,
+                TransactionType.INCOME
+        );
+    }
+
+    @Test
+    void shouldReturnInitialBalanceWhenAccountHasNoTransactions() {
+
+        // Arrange
+        Long accountId = 10L;
+        Long userId = 5L;
+
+        Account account = new Account();
+        account.setId(accountId);
+        account.setName("Emergency Savings");
+        account.setType(AccountType.SAVINGS);
+        account.setInitialBalance(new BigDecimal("5000.00"));
+
+        when(accountRepository.findByIdAndUserId(accountId, userId))
+                .thenReturn(Optional.of(account));
+
+        when(transactionRepository.calculateNetTransactionAmount(
+                accountId,
+                TransactionType.INCOME
+        )).thenReturn(BigDecimal.ZERO);
+
+        // Act
+        AccountResponse response =
+                accountService.getAccountById(accountId, userId);
+
+        // Assert
+        assertEquals(
+                new BigDecimal("5000.00"),
+                response.currentBalance()
+        );
+    }
 
 }

@@ -160,4 +160,132 @@ class TransactionRepositoryTest {
 
         return transactionRepository.saveAndFlush(transaction);
     }
+
+    @Test
+    void shouldCalculateNetTransactionAmount() {
+
+        // Arrange
+        User user = createUser("balance-calculation@example.com");
+
+        Account checking = createAccount(user, "Checking");
+
+        createTransaction(
+                checking,
+                TransactionType.INCOME,
+                "Paycheck",
+                "2500.00",
+                LocalDate.of(2026, 10, 14)
+        );
+
+        createTransaction(
+                checking,
+                TransactionType.EXPENSE,
+                "Groceries",
+                "150.00",
+                LocalDate.of(2026, 10, 14)
+        );
+
+        createTransaction(
+                checking,
+                TransactionType.EXPENSE,
+                "Utilities",
+                "200.00",
+                LocalDate.of(2026, 10, 14)
+        );
+
+        // Act
+        BigDecimal netAmount =
+                transactionRepository.calculateNetTransactionAmount(
+                        checking.getId(),
+                        TransactionType.INCOME
+                );
+
+        // Assert
+        assertEquals(
+                0,
+                new BigDecimal("2150.00").compareTo(netAmount)
+        );
+    }
+
+    @Test
+    void shouldReturnZeroWhenAccountHasNoTransactions() {
+
+        // Arrange
+        User user = createUser("empty-balance@example.com");
+
+        Account savings = createAccount(user, "Savings");
+
+        // Act
+        BigDecimal netAmount =
+                transactionRepository.calculateNetTransactionAmount(
+                        savings.getId(),
+                        TransactionType.INCOME
+                );
+
+        // Assert
+        assertNotNull(netAmount);
+
+        assertEquals(
+                0,
+                BigDecimal.ZERO.compareTo(netAmount)
+        );
+    }
+
+    @Test
+    void shouldOnlyCalculateTransactionsForSpecifiedAccount() {
+
+        // Arrange
+        User user = createUser("balance-isolation@example.com");
+
+        Account checking = createAccount(user, "Checking");
+        Account savings = createAccount(user, "Savings");
+
+        createTransaction(
+                checking,
+                TransactionType.INCOME,
+                "Paycheck",
+                "2500.00",
+                LocalDate.of(2026, 10, 14)
+        );
+
+        createTransaction(
+                checking,
+                TransactionType.EXPENSE,
+                "Groceries",
+                "150.00",
+                LocalDate.of(2026, 10, 14)
+        );
+
+        createTransaction(
+                savings,
+                TransactionType.INCOME,
+                "Savings Deposit",
+                "5000.00",
+                LocalDate.of(2026, 10, 14)
+        );
+
+        // Act
+        BigDecimal checkingNet =
+                transactionRepository.calculateNetTransactionAmount(
+                        checking.getId(),
+                        TransactionType.INCOME
+                );
+
+        BigDecimal savingsNet =
+                transactionRepository.calculateNetTransactionAmount(
+                        savings.getId(),
+                        TransactionType.INCOME
+                );
+
+        // Assert
+        assertEquals(
+                0,
+                new BigDecimal("2350.00").compareTo(checkingNet)
+        );
+
+        assertEquals(
+                0,
+                new BigDecimal("5000.00").compareTo(savingsNet)
+        );
+    }
 }
