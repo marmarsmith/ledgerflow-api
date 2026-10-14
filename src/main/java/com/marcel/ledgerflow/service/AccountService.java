@@ -12,19 +12,26 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 import com.marcel.ledgerflow.exception.AccountNotFoundException;
 import com.marcel.ledgerflow.dto.UpdateAccountRequest;
+import com.marcel.ledgerflow.entity.TransactionType;
+import com.marcel.ledgerflow.repository.TransactionRepository;
+
+import java.math.BigDecimal;
 
 @Service
 public class AccountService {
 
     private final AccountRepository accountRepository;
     private final UserRepository userRepository;
+    private final TransactionRepository transactionRepository;
 
     public AccountService(
             AccountRepository accountRepository,
-            UserRepository userRepository
+            UserRepository userRepository,
+            TransactionRepository transactionRepository
     ) {
         this.accountRepository = accountRepository;
         this.userRepository = userRepository;
+        this.transactionRepository = transactionRepository;
     }
 
     @Transactional
@@ -45,13 +52,7 @@ public class AccountService {
 
         Account savedAccount = accountRepository.saveAndFlush(account);
 
-        return new AccountResponse(
-                savedAccount.getId(),
-                savedAccount.getName(),
-                savedAccount.getType(),
-                savedAccount.getInitialBalance(),
-                savedAccount.getCreatedAt()
-        );
+        return toAccountResponse(savedAccount);
     }
 
     @Transactional(readOnly = true)
@@ -59,13 +60,7 @@ public class AccountService {
 
         return accountRepository.findAllByUserId(userId)
                 .stream()
-                .map(account -> new AccountResponse(
-                        account.getId(),
-                        account.getName(),
-                        account.getType(),
-                        account.getInitialBalance(),
-                        account.getCreatedAt()
-                ))
+                .map(this::toAccountResponse)
                 .toList();
     }
 
@@ -76,13 +71,7 @@ public class AccountService {
                 .findByIdAndUserId(accountId, userId)
                 .orElseThrow(AccountNotFoundException::new);
 
-        return new AccountResponse(
-                account.getId(),
-                account.getName(),
-                account.getType(),
-                account.getInitialBalance(),
-                account.getCreatedAt()
-        );
+        return toAccountResponse(account);
     }
 
     @Transactional
@@ -105,13 +94,7 @@ public class AccountService {
         Account updatedAccount = accountRepository.saveAndFlush(account);
 
         // Return the updated account
-        return new AccountResponse(
-                updatedAccount.getId(),
-                updatedAccount.getName(),
-                updatedAccount.getType(),
-                updatedAccount.getInitialBalance(),
-                updatedAccount.getCreatedAt()
-        );
+        return toAccountResponse(updatedAccount);
     }
 
     @Transactional
@@ -126,5 +109,25 @@ public class AccountService {
         accountRepository.delete(account);
     }
 
+    private AccountResponse toAccountResponse(Account account) {
+
+        BigDecimal netTransactionAmount =
+                transactionRepository.calculateNetTransactionAmount(
+                        account.getId(),
+                        TransactionType.INCOME
+                );
+
+        BigDecimal currentBalance = account.getInitialBalance()
+                .add(netTransactionAmount);
+
+        return new AccountResponse(
+                account.getId(),
+                account.getName(),
+                account.getType(),
+                account.getInitialBalance(),
+                currentBalance,
+                account.getCreatedAt()
+        );
+    }
 
 }
