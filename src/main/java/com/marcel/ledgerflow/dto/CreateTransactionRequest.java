@@ -25,7 +25,9 @@ public record CreateTransactionRequest(
         String description,
 
         @NotNull
-        LocalDate transactionDate
+        LocalDate transactionDate,
+
+        Long categoryId
 
 ) {
 }

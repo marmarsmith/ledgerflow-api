@@ -33,6 +33,10 @@ public class Transaction {
     @Column(name = "transaction_date", nullable = false)
     private LocalDate transactionDate;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "category_id")
+    private Category category;
+
     @Generated(event = EventType.INSERT)
     @Column(
             name = "created_at",
@@ -89,6 +93,10 @@ public class Transaction {
     public void setTransactionDate(LocalDate transactionDate) {
         this.transactionDate = transactionDate;
     }
+
+    public Category getCategory() {return category; }
+
+    public void setCategory(Category category) {this.category = category; }
 
     public OffsetDateTime getCreatedAt() {
         return createdAt;

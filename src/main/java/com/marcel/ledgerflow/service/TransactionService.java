@@ -15,18 +15,27 @@ import java.util.List;
 import com.marcel.ledgerflow.exception.TransactionNotFoundException;
 import com.marcel.ledgerflow.dto.UpdateTransactionRequest;
 
+import com.marcel.ledgerflow.repository.CategoryRepository;
+
+import com.marcel.ledgerflow.entity.Category;
+import com.marcel.ledgerflow.exception.CategoryNotFoundException;
+import com.marcel.ledgerflow.exception.CategoryTypeMismatchException;
+
 @Service
 public class TransactionService {
 
     private final TransactionRepository transactionRepository;
     private final AccountRepository accountRepository;
+    private final CategoryRepository categoryRepository;
 
     public TransactionService(
             TransactionRepository transactionRepository,
-            AccountRepository accountRepository
-    ) {
+            AccountRepository accountRepository,
+            CategoryRepository categoryRepository) {
+
         this.transactionRepository = transactionRepository;
         this.accountRepository = accountRepository;
+        this.categoryRepository = categoryRepository;
     }
 
     @Transactional
@@ -47,17 +56,33 @@ public class TransactionService {
         transaction.setDescription(request.description().trim());
         transaction.setTransactionDate(request.transactionDate());
 
+        if (request.categoryId() != null) {
+
+            Category category = categoryRepository
+                    .findByIdAndUserId(request.categoryId(), userId)
+                    .orElseThrow(CategoryNotFoundException::new);
+
+            if (category.getType() != request.type()) {
+                throw new CategoryTypeMismatchException();
+            }
+
+            transaction.setCategory(category);
+        }
+
         Transaction savedTransaction =
                 transactionRepository.saveAndFlush(transaction);
 
         return new TransactionResponse(
-                savedTransaction.getId(),
-                savedTransaction.getAccount().getId(),
-                savedTransaction.getType(),
-                savedTransaction.getAmount(),
-                savedTransaction.getDescription(),
-                savedTransaction.getTransactionDate(),
-                savedTransaction.getCreatedAt()
+                transaction.getId(),
+                transaction.getAccount().getId(),
+                transaction.getType(),
+                transaction.getAmount(),
+                transaction.getDescription(),
+                transaction.getTransactionDate(),
+                transaction.getCreatedAt(),
+                transaction.getCategory() != null
+                        ? transaction.getCategory().getId()
+                        : null
         );
     }
 
@@ -80,7 +105,10 @@ public class TransactionService {
                         transaction.getAmount(),
                         transaction.getDescription(),
                         transaction.getTransactionDate(),
-                        transaction.getCreatedAt()
+                        transaction.getCreatedAt(),
+                        transaction.getCategory() != null
+                            ? transaction.getCategory().getId()
+                                : null
                 ))
                 .toList();
     }
@@ -106,7 +134,10 @@ public class TransactionService {
                 transaction.getAmount(),
                 transaction.getDescription(),
                 transaction.getTransactionDate(),
-                transaction.getCreatedAt()
+                transaction.getCreatedAt(),
+                transaction.getCategory() != null
+                        ? transaction.getCategory().getId()
+                        : null
         );
     }
 
@@ -126,10 +157,26 @@ public class TransactionService {
                 .findByIdAndAccountId(transactionId, accountId)
                 .orElseThrow(TransactionNotFoundException::new);
 
+        // Validate category before modifying the transaction
+        Category category = null;
+
+        if (request.categoryId() != null) {
+
+            category = categoryRepository
+                    .findByIdAndUserId(request.categoryId(), userId)
+                    .orElseThrow(CategoryNotFoundException::new);
+
+            if (category.getType() != request.type()) {
+                throw new CategoryTypeMismatchException();
+            }
+        }
+
+        // Apply changes after validation succeeds
         transaction.setType(request.type());
         transaction.setAmount(request.amount());
-        transaction.setDescription(request.description().trim());
+        transaction.setDescription(request.description());
         transaction.setTransactionDate(request.transactionDate());
+        transaction.setCategory(category);
 
         Transaction updatedTransaction =
                 transactionRepository.saveAndFlush(transaction);
@@ -141,7 +188,10 @@ public class TransactionService {
                 updatedTransaction.getAmount(),
                 updatedTransaction.getDescription(),
                 updatedTransaction.getTransactionDate(),
-                updatedTransaction.getCreatedAt()
+                updatedTransaction.getCreatedAt(),
+                updatedTransaction.getCategory() != null
+                        ? updatedTransaction.getCategory().getId()
+                        : null
         );
     }
 

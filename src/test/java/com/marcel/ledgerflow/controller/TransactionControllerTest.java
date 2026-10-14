@@ -1,6 +1,7 @@
 package com.marcel.ledgerflow.controller;
 
 
+import com.marcel.ledgerflow.dto.CreateTransactionRequest;
 import com.marcel.ledgerflow.dto.TransactionResponse;
 import com.marcel.ledgerflow.entity.TransactionType;
 import com.marcel.ledgerflow.exception.GlobalExceptionHandler;
@@ -50,11 +51,14 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 
+import com.marcel.ledgerflow.exception.CategoryTypeMismatchException;
+
 class TransactionControllerTest {
 
     private MockMvc mockMvc;
     private TransactionService transactionService;
     private LocalValidatorFactoryBean validator;
+    private ObjectMapper objectMapper;
 
     @BeforeEach
     void setUp() {
@@ -64,7 +68,7 @@ class TransactionControllerTest {
         validator = new LocalValidatorFactoryBean();
         validator.afterPropertiesSet();
 
-        ObjectMapper objectMapper = new ObjectMapper();
+        objectMapper = new ObjectMapper();
         objectMapper.registerModule(new JavaTimeModule());
         objectMapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
 
@@ -109,7 +113,8 @@ class TransactionControllerTest {
                 new BigDecimal("85.50"),
                 "Weekly groceries",
                 LocalDate.of(2026, 10, 14),
-                OffsetDateTime.parse("2026-10-14T09:30:00-05:00")
+                OffsetDateTime.parse("2026-10-14T09:30:00-05:00"),
+                null
         );
 
         when(transactionService.createTransaction(eq(5L), eq(10L), any()))
@@ -238,7 +243,8 @@ class TransactionControllerTest {
                 new BigDecimal("2500.00"),
                 "Paycheck",
                 LocalDate.of(2026, 10, 14),
-                OffsetDateTime.parse("2026-10-14T09:30:00-05:00")
+                OffsetDateTime.parse("2026-10-14T09:30:00-05:00"),
+                null
         );
 
         TransactionResponse groceries = new TransactionResponse(
@@ -248,7 +254,8 @@ class TransactionControllerTest {
                 new BigDecimal("85.50"),
                 "Weekly groceries",
                 LocalDate.of(2026, 10, 12),
-                OffsetDateTime.parse("2026-10-12T15:00:00-05:00")
+                OffsetDateTime.parse("2026-10-12T15:00:00-05:00"),
+                null
         );
 
         when(transactionService.getTransactionsByAccountId(5L, 10L))
@@ -296,7 +303,8 @@ class TransactionControllerTest {
                 new BigDecimal("85.50"),
                 "Weekly groceries",
                 LocalDate.of(2026, 10, 14),
-                OffsetDateTime.parse("2026-10-14T09:30:00-05:00")
+                OffsetDateTime.parse("2026-10-14T09:30:00-05:00"),
+                null
         );
 
         when(transactionService.getTransactionById(5L, 10L, 101L))
@@ -366,7 +374,8 @@ class TransactionControllerTest {
                 new BigDecimal("120.75"),
                 "Updated grocery shopping",
                 LocalDate.of(2026, 10, 15),
-                OffsetDateTime.parse("2026-10-14T09:30:00-05:00")
+                OffsetDateTime.parse("2026-10-14T09:30:00-05:00"),
+                null
         );
 
         when(transactionService.updateTransaction(
@@ -579,6 +588,108 @@ class TransactionControllerTest {
 
         verify(transactionService)
                 .deleteTransaction(userId, accountId, transactionId);
+    }
+
+    @Test
+    void shouldReturn400WhenTransactionCategoryTypeDoesNotMatch() throws Exception {
+
+        // Arrange
+        Long userId = 5L;
+        Long accountId = 10L;
+
+        CreateTransactionRequest request = new CreateTransactionRequest(
+                TransactionType.EXPENSE,
+                new BigDecimal("85.50"),
+                "Weekly groceries",
+                LocalDate.of(2026, 10, 14),
+                7L
+        );
+
+        when(transactionService.createTransaction(
+                eq(userId),
+                eq(accountId),
+                any(CreateTransactionRequest.class)
+        )).thenThrow(new CategoryTypeMismatchException());
+
+        Jwt jwt = new Jwt(
+                "mock-token",
+                Instant.now(),
+                Instant.now().plusSeconds(3600),
+                Map.of("alg", "HS256"),
+                Map.of("sub", "5")
+        );
+
+        JwtAuthenticationToken authentication =
+                new JwtAuthenticationToken(jwt);
+
+        var securityContext = SecurityContextHolder.createEmptyContext();
+        securityContext.setAuthentication(authentication);
+        SecurityContextHolder.setContext(securityContext);
+
+        // Act & Assert
+        mockMvc.perform(post("/api/accounts/{accountId}/transactions", accountId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$").value(
+                        "Category type must match transaction type"
+                ));
+
+        verify(transactionService).createTransaction(
+                eq(userId),
+                eq(accountId),
+                any(CreateTransactionRequest.class)
+        );
+    }
+
+    @Test
+    void shouldReturnCategoryIdWhenCreatingCategorizedTransaction() throws Exception {
+
+        // Arrange
+        TransactionResponse response = new TransactionResponse(
+                101L,
+                10L,
+                TransactionType.EXPENSE,
+                new BigDecimal("85.50"),
+                "Weekly groceries",
+                LocalDate.of(2026, 10, 14),
+                OffsetDateTime.parse("2026-10-14T09:30:00-05:00"),
+                7L
+        );
+
+        when(transactionService.createTransaction(
+                eq(5L),
+                eq(10L),
+                any(CreateTransactionRequest.class)
+        )).thenReturn(response);
+
+        String requestBody = """
+            {
+                "type": "EXPENSE",
+                "amount": 85.50,
+                "description": "Weekly groceries",
+                "transactionDate": "2026-10-14",
+                "categoryId": 7
+            }
+            """;
+
+        // Act & Assert
+        mockMvc.perform(
+                        post("/api/accounts/10/transactions")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(requestBody)
+                )
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.id").value(101))
+                .andExpect(jsonPath("$.accountId").value(10))
+                .andExpect(jsonPath("$.type").value("EXPENSE"))
+                .andExpect(jsonPath("$.categoryId").value(7));
+
+        verify(transactionService).createTransaction(
+                eq(5L),
+                eq(10L),
+                any(CreateTransactionRequest.class)
+        );
     }
 
 

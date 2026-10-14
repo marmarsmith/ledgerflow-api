@@ -13,6 +13,7 @@ public record TransactionResponse(
         BigDecimal amount,
         String description,
         LocalDate transactionDate,
-        OffsetDateTime createdAt
+        OffsetDateTime createdAt,
+        Long categoryId
 ) {
 }
