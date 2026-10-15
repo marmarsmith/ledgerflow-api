@@ -108,12 +108,6 @@
 		</dependency>
 
 
-		<!-- Validate JWTs on protected API requests -->
-		<dependency>
-			<groupId>org.springframework.boot</groupId>
-			<artifactId>spring-boot-starter-oauth2-resource-server</artifactId>
-		</dependency>
-
 		<!-- Create and sign JWTs during login -->
 		<dependency>
 			<groupId>org.springframework.security</groupId>

@@ -91,4 +91,31 @@ public class GlobalExceptionHandler {
                 .body(ex.getMessage());
     }
 
+    @ExceptionHandler(BudgetNotFoundException.class)
+    public ResponseEntity<String> handleBudgetNotFound(
+            BudgetNotFoundException exception
+    ) {
+        return ResponseEntity
+                .status(HttpStatus.NOT_FOUND)
+                .body(exception.getMessage());
+    }
+
+    @ExceptionHandler(DuplicateBudgetException.class)
+    public ResponseEntity<String> handleDuplicateBudget(
+            DuplicateBudgetException exception
+    ) {
+        return ResponseEntity
+                .status(HttpStatus.CONFLICT)
+                .body(exception.getMessage());
+    }
+
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<Map<String, String>> handleIllegalArgument(
+            IllegalArgumentException ex
+    ) {
+        return ResponseEntity
+                .badRequest()
+                .body(Map.of("error", ex.getMessage()));
+    }
+
 }
