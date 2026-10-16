@@ -3,7 +3,7 @@ package com.marcel.ledgerflow.service;
 import com.marcel.ledgerflow.dto.CategoryResponse;
 import com.marcel.ledgerflow.dto.CreateCategoryRequest;
 import com.marcel.ledgerflow.entity.Category;
-import com.marcel.ledgerflow.entity.TransactionType;
+import com.marcel.ledgerflow.enums.TransactionType;
 import com.marcel.ledgerflow.entity.User;
 import com.marcel.ledgerflow.exception.DuplicateCategoryException;
 import com.marcel.ledgerflow.repository.CategoryRepository;

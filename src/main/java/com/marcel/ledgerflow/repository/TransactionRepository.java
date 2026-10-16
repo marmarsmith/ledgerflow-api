@@ -1,7 +1,7 @@
 package com.marcel.ledgerflow.repository;
 
 import com.marcel.ledgerflow.entity.Transaction;
-import com.marcel.ledgerflow.entity.TransactionType;
+import com.marcel.ledgerflow.enums.TransactionType;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;

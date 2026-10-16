@@ -1,8 +1,6 @@
 package com.marcel.ledgerflow.controller;
 
-import com.marcel.ledgerflow.dto.BudgetRequest;
-import com.marcel.ledgerflow.dto.BudgetResponse;
-import com.marcel.ledgerflow.dto.UpdateBudgetRequest;
+import com.marcel.ledgerflow.dto.*;
 import com.marcel.ledgerflow.service.BudgetService;
 
 import jakarta.validation.Valid;
@@ -97,4 +95,63 @@ public class BudgetController {
 
         return ResponseEntity.noContent().build();
     }
+
+    @GetMapping("/summary")
+    public ResponseEntity<BudgetSummaryResponse> getMonthlyBudgetSummary(
+            @AuthenticationPrincipal Jwt jwt,
+            @RequestParam Integer year,
+            @RequestParam Integer month
+    ) {
+
+        Long userId = Long.valueOf(jwt.getSubject());
+
+        BudgetSummaryResponse response =
+                budgetService.getMonthlyBudgetSummary(
+                        userId,
+                        year,
+                        month
+                );
+
+        return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/alerts")
+    public ResponseEntity<List<BudgetAlertResponse>> getMonthlyBudgetAlerts(
+            @AuthenticationPrincipal Jwt jwt,
+            @RequestParam Integer year,
+            @RequestParam Integer month
+    ) {
+
+        Long userId = Long.valueOf(jwt.getSubject());
+
+        List<BudgetAlertResponse> alerts =
+                budgetService.getMonthlyBudgetAlerts(
+                        userId,
+                        year,
+                        month
+                );
+
+        return ResponseEntity.ok(alerts);
+    }
+
+
+    @GetMapping("/insights")
+    public ResponseEntity<List<SpendingInsightResponse>> getMonthlySpendingInsights(
+            @AuthenticationPrincipal Jwt jwt,
+            @RequestParam Integer year,
+            @RequestParam Integer month
+    ) {
+
+        Long userId = Long.valueOf(jwt.getSubject());
+
+        List<SpendingInsightResponse> insights =
+                budgetService.getMonthlySpendingInsights(
+                        userId,
+                        year,
+                        month
+                );
+
+        return ResponseEntity.ok(insights);
+    }
+
 }

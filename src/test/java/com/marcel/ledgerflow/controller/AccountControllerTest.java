@@ -3,7 +3,7 @@ package com.marcel.ledgerflow.controller;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.marcel.ledgerflow.dto.AccountResponse;
 import com.marcel.ledgerflow.dto.CreateAccountRequest;
-import com.marcel.ledgerflow.entity.AccountType;
+import com.marcel.ledgerflow.enums.AccountType;
 import com.marcel.ledgerflow.service.AccountService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;

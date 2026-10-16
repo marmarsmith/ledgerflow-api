@@ -1,6 +1,7 @@
 
 package com.marcel.ledgerflow.entity;
 
+import com.marcel.ledgerflow.enums.AccountType;
 import jakarta.persistence.*;
 import org.hibernate.annotations.Generated;
 import org.hibernate.generator.EventType;

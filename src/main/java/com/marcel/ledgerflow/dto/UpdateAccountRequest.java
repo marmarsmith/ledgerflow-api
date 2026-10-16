@@ -1,7 +1,7 @@
 
 package com.marcel.ledgerflow.dto;
 
-import com.marcel.ledgerflow.entity.AccountType;
+import com.marcel.ledgerflow.enums.AccountType;
 import jakarta.validation.constraints.Digits;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;

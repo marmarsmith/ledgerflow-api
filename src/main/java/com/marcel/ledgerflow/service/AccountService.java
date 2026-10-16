@@ -12,7 +12,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 import com.marcel.ledgerflow.exception.AccountNotFoundException;
 import com.marcel.ledgerflow.dto.UpdateAccountRequest;
-import com.marcel.ledgerflow.entity.TransactionType;
+import com.marcel.ledgerflow.enums.TransactionType;
 import com.marcel.ledgerflow.repository.TransactionRepository;
 
 import java.math.BigDecimal;

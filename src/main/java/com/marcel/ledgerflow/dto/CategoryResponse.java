@@ -1,6 +1,6 @@
 package com.marcel.ledgerflow.dto;
 
-import com.marcel.ledgerflow.entity.TransactionType;
+import com.marcel.ledgerflow.enums.TransactionType;
 import java.time.OffsetDateTime;
 
 public record CategoryResponse(

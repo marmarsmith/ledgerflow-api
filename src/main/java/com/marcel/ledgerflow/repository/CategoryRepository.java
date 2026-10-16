@@ -5,7 +5,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;
 import java.util.Optional;
-import com.marcel.ledgerflow.entity.TransactionType;
+import com.marcel.ledgerflow.enums.TransactionType;
 
 public interface CategoryRepository extends JpaRepository<Category, Long> {
 

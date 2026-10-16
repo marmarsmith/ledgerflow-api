@@ -1,7 +1,7 @@
 package com.marcel.ledgerflow.service;
 
 import com.marcel.ledgerflow.dto.MonthlyReportResponse;
-import com.marcel.ledgerflow.entity.TransactionType;
+import com.marcel.ledgerflow.enums.TransactionType;
 import com.marcel.ledgerflow.repository.TransactionRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
