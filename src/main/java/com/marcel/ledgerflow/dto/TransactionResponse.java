@@ -1,6 +1,6 @@
 package com.marcel.ledgerflow.dto;
 
-import com.marcel.ledgerflow.entity.TransactionType;
+import com.marcel.ledgerflow.enums.TransactionType;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;

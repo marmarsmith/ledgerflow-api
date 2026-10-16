@@ -1,7 +1,7 @@
 package com.marcel.ledgerflow.service;
 
 import com.marcel.ledgerflow.dto.MonthlyReportResponse;
-import com.marcel.ledgerflow.entity.TransactionType;
+import com.marcel.ledgerflow.enums.TransactionType;
 import com.marcel.ledgerflow.repository.TransactionRepository;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -17,7 +17,6 @@ import java.time.LocalDate;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 import com.marcel.ledgerflow.repository.CategoryExpenseProjection;
 

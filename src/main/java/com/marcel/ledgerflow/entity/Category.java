@@ -1,5 +1,6 @@
 package com.marcel.ledgerflow.entity;
 
+import com.marcel.ledgerflow.enums.TransactionType;
 import jakarta.persistence.*;
 import java.time.OffsetDateTime;
 

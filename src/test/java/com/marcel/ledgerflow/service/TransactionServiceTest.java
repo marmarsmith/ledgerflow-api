@@ -4,7 +4,7 @@ import com.marcel.ledgerflow.dto.CreateTransactionRequest;
 import com.marcel.ledgerflow.dto.TransactionResponse;
 import com.marcel.ledgerflow.entity.Account;
 import com.marcel.ledgerflow.entity.Transaction;
-import com.marcel.ledgerflow.entity.TransactionType;
+import com.marcel.ledgerflow.enums.TransactionType;
 import com.marcel.ledgerflow.exception.AccountNotFoundException;
 import com.marcel.ledgerflow.repository.AccountRepository;
 import com.marcel.ledgerflow.repository.TransactionRepository;

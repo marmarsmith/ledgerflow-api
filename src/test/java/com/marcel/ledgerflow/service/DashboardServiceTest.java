@@ -2,7 +2,7 @@ package com.marcel.ledgerflow.service;
 
 import com.marcel.ledgerflow.dto.DashboardResponse;
 import com.marcel.ledgerflow.dto.MonthlyTrendResponse;
-import com.marcel.ledgerflow.entity.TransactionType;
+import com.marcel.ledgerflow.enums.TransactionType;
 import com.marcel.ledgerflow.repository.TransactionRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;

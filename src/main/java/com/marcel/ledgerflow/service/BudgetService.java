@@ -1,11 +1,10 @@
 package com.marcel.ledgerflow.service;
 
-import com.marcel.ledgerflow.dto.BudgetRequest;
-import com.marcel.ledgerflow.dto.BudgetResponse;
-import com.marcel.ledgerflow.dto.UpdateBudgetRequest;
+import com.marcel.ledgerflow.dto.*;
 import com.marcel.ledgerflow.entity.Budget;
 import com.marcel.ledgerflow.entity.Category;
-import com.marcel.ledgerflow.entity.TransactionType;
+import com.marcel.ledgerflow.enums.BudgetAlertStatus;
+import com.marcel.ledgerflow.enums.TransactionType;
 import com.marcel.ledgerflow.entity.User;
 import com.marcel.ledgerflow.exception.BudgetNotFoundException;
 import com.marcel.ledgerflow.exception.CategoryNotFoundException;
@@ -121,6 +120,132 @@ public class BudgetService {
                 .toList();
     }
 
+    public BudgetSummaryResponse getMonthlyBudgetSummary(
+            Long userId,
+            Integer year,
+            Integer month
+    ) {
+
+        List<BudgetResponse> budgets =
+                getBudgetsByMonth(userId, year, month);
+
+        BigDecimal totalBudgeted = BigDecimal.ZERO;
+        BigDecimal totalSpent = BigDecimal.ZERO;
+
+        int overBudgetCount = 0;
+        int nearLimitCount = 0;
+
+        for (BudgetResponse budget : budgets) {
+
+            totalBudgeted = totalBudgeted.add(budget.amount());
+
+            totalSpent = totalSpent.add(budget.spentAmount());
+
+            if (budget.overBudget()) {
+
+                overBudgetCount++;
+
+            } else if (budget.spentAmount()
+                    .multiply(new BigDecimal("100"))
+                    .compareTo(
+                            budget.amount().multiply(new BigDecimal("80"))
+                    ) >= 0) {
+
+                nearLimitCount++;
+            }
+        }
+
+        BigDecimal totalRemaining =
+                totalBudgeted.subtract(totalSpent);
+
+        BigDecimal overallPercentageUsed = BigDecimal.ZERO;
+
+        if (totalBudgeted.compareTo(BigDecimal.ZERO) > 0) {
+
+            overallPercentageUsed = totalSpent
+                    .multiply(new BigDecimal("100"))
+                    .divide(totalBudgeted, 2, RoundingMode.HALF_UP);
+        }
+
+        return new BudgetSummaryResponse(
+                year,
+                month,
+                totalBudgeted,
+                totalSpent,
+                totalRemaining,
+                overallPercentageUsed,
+                overBudgetCount,
+                nearLimitCount
+        );
+    }
+
+    public List<BudgetAlertResponse> getMonthlyBudgetAlerts(
+            Long userId,
+            Integer year,
+            Integer month
+    ) {
+
+        List<BudgetResponse> budgets =
+                getBudgetsByMonth(userId, year, month);
+
+        return budgets.stream()
+                .map(budget -> new BudgetAlertResponse(
+
+                        budget.id(),
+                        budget.categoryId(),
+                        budget.categoryName(),
+
+                        budget.year(),
+                        budget.month(),
+
+                        budget.amount(),
+                        budget.spentAmount(),
+                        budget.remainingAmount(),
+                        budget.percentageUsed(),
+
+                        determineBudgetAlertStatus(
+                                budget.spentAmount(),
+                                budget.amount()
+                        )
+
+                ))
+                .toList();
+    }
+
+
+    @Transactional(readOnly = true)
+    public List<SpendingInsightResponse> getMonthlySpendingInsights(
+            Long userId,
+            Integer year,
+            Integer month
+    ) {
+
+        List<BudgetResponse> budgets =
+                getBudgetsByMonth(userId, year, month);
+
+        return budgets.stream()
+
+                // Rank categories by actual spending, highest first
+                .sorted((first, second) ->
+                        second.spentAmount()
+                                .compareTo(first.spentAmount())
+                )
+
+                // Convert each budget into a spending insight
+                .map(budget -> new SpendingInsightResponse(
+                        budget.categoryId(),
+                        budget.categoryName(),
+                        budget.amount(),
+                        budget.spentAmount(),
+                        budget.remainingAmount(),
+                        budget.percentageUsed(),
+                        budget.overBudget()
+                ))
+
+                .toList();
+    }
+
+
     @Transactional(readOnly = true)
     public BudgetResponse getBudgetById(
             Long budgetId,
@@ -214,5 +339,32 @@ public class BudgetService {
                 percentageUsed,
                 overBudget
         );
+    }
+
+    private BudgetAlertStatus determineBudgetAlertStatus(
+            BigDecimal spentAmount,
+            BigDecimal budgetAmount
+    ) {
+
+        // Spending exceeds 100% of the budget
+        if (spentAmount.compareTo(budgetAmount) > 0) {
+            return BudgetAlertStatus.OVER_BUDGET;
+        }
+
+        // Spending reaches at least 90% of the budget
+        if (spentAmount.multiply(new BigDecimal("100"))
+                .compareTo(budgetAmount.multiply(new BigDecimal("90"))) >= 0) {
+
+            return BudgetAlertStatus.CRITICAL;
+        }
+
+        // Spending reaches at least 80% of the budget
+        if (spentAmount.multiply(new BigDecimal("100"))
+                .compareTo(budgetAmount.multiply(new BigDecimal("80"))) >= 0) {
+
+            return BudgetAlertStatus.WARNING;
+        }
+
+        return BudgetAlertStatus.ON_TRACK;
     }
 }

@@ -2,7 +2,7 @@
 package com.marcel.ledgerflow.repository;
 
 import com.marcel.ledgerflow.entity.Account;
-import com.marcel.ledgerflow.entity.AccountType;
+import com.marcel.ledgerflow.enums.AccountType;
 import com.marcel.ledgerflow.entity.User;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;

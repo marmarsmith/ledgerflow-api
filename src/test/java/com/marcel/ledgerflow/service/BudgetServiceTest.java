@@ -1,7 +1,8 @@
 package com.marcel.ledgerflow.service;
 
-import com.marcel.ledgerflow.dto.UpdateBudgetRequest;
-import com.marcel.ledgerflow.entity.TransactionType;
+import com.marcel.ledgerflow.dto.*;
+import com.marcel.ledgerflow.enums.BudgetAlertStatus;
+import com.marcel.ledgerflow.enums.TransactionType;
 import com.marcel.ledgerflow.exception.BudgetNotFoundException;
 import com.marcel.ledgerflow.repository.BudgetRepository;
 import com.marcel.ledgerflow.repository.CategoryRepository;
@@ -20,8 +21,6 @@ import java.time.LocalDate;
 
 import com.marcel.ledgerflow.exception.CategoryNotFoundException;
 
-import com.marcel.ledgerflow.dto.BudgetRequest;
-import com.marcel.ledgerflow.dto.BudgetResponse;
 import com.marcel.ledgerflow.entity.Budget;
 import com.marcel.ledgerflow.entity.Category;
 
@@ -991,4 +990,810 @@ class BudgetServiceTest {
                         LocalDate.of(2026, 11, 1)
                 );
     }
+
+    @Test
+    void shouldReturnOnTrackAlertWhenSpendingIsBelow80Percent() {
+
+        // Arrange
+        Long userId = 1L;
+        Integer year = 2026;
+        Integer month = 10;
+
+        User user = new User();
+        ReflectionTestUtils.setField(user, "id", 1L);
+
+        Category category = new Category();
+        ReflectionTestUtils.setField(category, "id", 3L);
+
+        category.setName("Entertainment");
+
+        Budget budget = new Budget();
+        ReflectionTestUtils.setField(budget, "id", 10L);
+
+        budget.setUser(user);
+        budget.setCategory(category);
+        budget.setYear(year);
+        budget.setMonth(month);
+        budget.setAmount(new BigDecimal("1000.00"));
+
+        when(budgetRepository.findByUserIdAndYearAndMonth(
+                userId, year, month
+        )).thenReturn(List.of(budget));
+
+        when(transactionRepository.calculateCategorySpending(
+                eq(userId),
+                any(),
+                eq(TransactionType.EXPENSE),
+                any(),
+                any()
+        )).thenReturn(new BigDecimal("575.00"));
+
+        // Act
+        List<BudgetAlertResponse> alerts =
+                budgetService.getMonthlyBudgetAlerts(
+                        userId, year, month
+                );
+
+        // Assert
+        assertEquals(1, alerts.size());
+
+        BudgetAlertResponse alert = alerts.get(0);
+
+        assertEquals(BudgetAlertStatus.ON_TRACK, alert.status());
+
+        assertEquals(
+                0,
+                new BigDecimal("57.50")
+                        .compareTo(alert.percentageUsed())
+        );
+
+        assertEquals(
+                0,
+                new BigDecimal("425.00")
+                        .compareTo(alert.remainingAmount())
+        );
+    }
+
+    @Test
+    void shouldReturnWarningAlertWhenSpendingReaches80Percent() {
+
+        // Arrange
+        Long userId = 1L;
+        Integer year = 2026;
+        Integer month = 10;
+
+        User user = new User();
+        ReflectionTestUtils.setField(user, "id", userId);
+
+        Category category = new Category();
+        ReflectionTestUtils.setField(category, "id", 3L);
+        category.setName("Entertainment");
+
+        Budget budget = new Budget();
+        ReflectionTestUtils.setField(budget, "id", 10L);
+
+        budget.setUser(user);
+        budget.setCategory(category);
+        budget.setYear(year);
+        budget.setMonth(month);
+        budget.setAmount(new BigDecimal("1000.00"));
+
+        when(budgetRepository.findByUserIdAndYearAndMonth(
+                userId, year, month
+        )).thenReturn(List.of(budget));
+
+        when(transactionRepository.calculateCategorySpending(
+                eq(userId),
+                eq(3L),
+                eq(TransactionType.EXPENSE),
+                eq(LocalDate.of(2026, 10, 1)),
+                eq(LocalDate.of(2026, 11, 1))
+        )).thenReturn(new BigDecimal("800.00"));
+
+        // Act
+        List<BudgetAlertResponse> alerts =
+                budgetService.getMonthlyBudgetAlerts(
+                        userId, year, month
+                );
+
+        // Assert
+        assertEquals(1, alerts.size());
+
+        BudgetAlertResponse alert = alerts.get(0);
+
+        assertEquals(
+                BudgetAlertStatus.WARNING,
+                alert.status()
+        );
+
+        assertEquals(
+                0,
+                new BigDecimal("80.00")
+                        .compareTo(alert.percentageUsed())
+        );
+
+        assertEquals(
+                0,
+                new BigDecimal("200.00")
+                        .compareTo(alert.remainingAmount())
+        );
+    }
+
+    @Test
+    void shouldReturnCriticalAlertWhenSpendingReaches90Percent() {
+
+        // Arrange
+        Long userId = 1L;
+        Integer year = 2026;
+        Integer month = 10;
+
+        User user = new User();
+        ReflectionTestUtils.setField(user, "id", userId);
+
+        Category category = new Category();
+        ReflectionTestUtils.setField(category, "id", 3L);
+        category.setName("Entertainment");
+
+        Budget budget = new Budget();
+        ReflectionTestUtils.setField(budget, "id", 10L);
+
+        budget.setUser(user);
+        budget.setCategory(category);
+        budget.setYear(year);
+        budget.setMonth(month);
+        budget.setAmount(new BigDecimal("1000.00"));
+
+        when(budgetRepository.findByUserIdAndYearAndMonth(
+                userId, year, month
+        )).thenReturn(List.of(budget));
+
+        when(transactionRepository.calculateCategorySpending(
+                eq(userId),
+                eq(3L),
+                eq(TransactionType.EXPENSE),
+                eq(LocalDate.of(2026, 10, 1)),
+                eq(LocalDate.of(2026, 11, 1))
+        )).thenReturn(new BigDecimal("900.00"));
+
+        // Act
+        List<BudgetAlertResponse> alerts =
+                budgetService.getMonthlyBudgetAlerts(
+                        userId, year, month
+                );
+
+        // Assert
+        assertEquals(1, alerts.size());
+
+        BudgetAlertResponse alert = alerts.get(0);
+
+        assertEquals(
+                BudgetAlertStatus.CRITICAL,
+                alert.status()
+        );
+
+        assertEquals(
+                0,
+                new BigDecimal("90.00")
+                        .compareTo(alert.percentageUsed())
+        );
+
+        assertEquals(
+                0,
+                new BigDecimal("100.00")
+                        .compareTo(alert.remainingAmount())
+        );
+    }
+
+    @Test
+    void shouldReturnCriticalAlertWhenSpendingReaches100Percent() {
+
+        // Arrange
+        Long userId = 1L;
+        Integer year = 2026;
+        Integer month = 10;
+
+        User user = new User();
+        ReflectionTestUtils.setField(user, "id", userId);
+
+        Category category = new Category();
+        ReflectionTestUtils.setField(category, "id", 3L);
+        category.setName("Entertainment");
+
+        Budget budget = new Budget();
+        ReflectionTestUtils.setField(budget, "id", 10L);
+
+        budget.setUser(user);
+        budget.setCategory(category);
+        budget.setYear(year);
+        budget.setMonth(month);
+        budget.setAmount(new BigDecimal("1000.00"));
+
+        when(budgetRepository.findByUserIdAndYearAndMonth(
+                userId, year, month
+        )).thenReturn(List.of(budget));
+
+        when(transactionRepository.calculateCategorySpending(
+                eq(userId),
+                eq(3L),
+                eq(TransactionType.EXPENSE),
+                eq(LocalDate.of(2026, 10, 1)),
+                eq(LocalDate.of(2026, 11, 1))
+        )).thenReturn(new BigDecimal("1000.00"));
+
+        // Act
+        List<BudgetAlertResponse> alerts =
+                budgetService.getMonthlyBudgetAlerts(
+                        userId, year, month
+                );
+
+        // Assert
+        assertEquals(1, alerts.size());
+
+        BudgetAlertResponse alert = alerts.get(0);
+
+        assertEquals(
+                BudgetAlertStatus.CRITICAL,
+                alert.status()
+        );
+
+        assertEquals(
+                0,
+                new BigDecimal("100.00")
+                        .compareTo(alert.percentageUsed())
+        );
+
+        assertEquals(
+                0,
+                BigDecimal.ZERO.compareTo(alert.remainingAmount())
+        );
+    }
+
+    @Test
+    void shouldReturnOverBudgetAlertWhenSpendingExceeds100Percent() {
+
+        // Arrange
+        Long userId = 1L;
+        Integer year = 2026;
+        Integer month = 10;
+
+        User user = new User();
+        ReflectionTestUtils.setField(user, "id", userId);
+
+        Category category = new Category();
+        ReflectionTestUtils.setField(category, "id", 3L);
+        category.setName("Entertainment");
+
+        Budget budget = new Budget();
+        ReflectionTestUtils.setField(budget, "id", 10L);
+
+        budget.setUser(user);
+        budget.setCategory(category);
+        budget.setYear(year);
+        budget.setMonth(month);
+        budget.setAmount(new BigDecimal("1000.00"));
+
+        when(budgetRepository.findByUserIdAndYearAndMonth(
+                userId, year, month
+        )).thenReturn(List.of(budget));
+
+        when(transactionRepository.calculateCategorySpending(
+                eq(userId),
+                eq(3L),
+                eq(TransactionType.EXPENSE),
+                eq(LocalDate.of(2026, 10, 1)),
+                eq(LocalDate.of(2026, 11, 1))
+        )).thenReturn(new BigDecimal("1000.01"));
+
+        // Act
+        List<BudgetAlertResponse> alerts =
+                budgetService.getMonthlyBudgetAlerts(
+                        userId, year, month
+                );
+
+        // Assert
+        assertEquals(1, alerts.size());
+
+        BudgetAlertResponse alert = alerts.get(0);
+
+        assertEquals(
+                BudgetAlertStatus.OVER_BUDGET,
+                alert.status()
+        );
+
+        assertEquals(
+                0,
+                new BigDecimal("100.00")
+                        .compareTo(alert.percentageUsed())
+        );
+
+        assertEquals(
+                0,
+                BigDecimal.ZERO.compareTo(alert.remainingAmount())
+        );
+
+        assertEquals(
+                0,
+                new BigDecimal("1000.01")
+                        .compareTo(alert.spentAmount())
+        );
+    }
+
+    @Test
+    void shouldCountOneCentOverspendingInMonthlySummary() {
+
+        // Arrange
+        Long userId = 1L;
+        Integer year = 2026;
+        Integer month = 10;
+
+        User user = new User();
+        ReflectionTestUtils.setField(user, "id", userId);
+
+        Category category = new Category();
+        ReflectionTestUtils.setField(category, "id", 3L);
+        category.setName("Entertainment");
+
+        Budget budget = new Budget();
+        ReflectionTestUtils.setField(budget, "id", 10L);
+
+        budget.setUser(user);
+        budget.setCategory(category);
+        budget.setYear(year);
+        budget.setMonth(month);
+        budget.setAmount(new BigDecimal("1000.00"));
+
+        when(budgetRepository.findByUserIdAndYearAndMonth(
+                userId, year, month
+        )).thenReturn(List.of(budget));
+
+        when(transactionRepository.calculateCategorySpending(
+                eq(userId),
+                eq(3L),
+                eq(TransactionType.EXPENSE),
+                eq(LocalDate.of(2026, 10, 1)),
+                eq(LocalDate.of(2026, 11, 1))
+        )).thenReturn(new BigDecimal("1000.01"));
+
+        // Act
+        BudgetSummaryResponse summary =
+                budgetService.getMonthlyBudgetSummary(
+                        userId, year, month
+                );
+
+        // Assert
+        assertEquals(1, summary.overBudgetCount());
+        assertEquals(0, summary.nearLimitCount());
+
+        assertEquals(
+                0,
+                new BigDecimal("1000.00")
+                        .compareTo(summary.totalBudgeted())
+        );
+
+        assertEquals(
+                0,
+                new BigDecimal("1000.01")
+                        .compareTo(summary.totalSpent())
+        );
+
+        assertEquals(
+                0,
+                new BigDecimal("-0.01")
+                        .compareTo(summary.totalRemaining())
+        );
+
+        assertEquals(
+                0,
+                new BigDecimal("100.00")
+                        .compareTo(summary.overallPercentageUsed())
+        );
+    }
+
+    @Test
+    void shouldReturnOnTrackAlertWhenSpendingIsJustBelow80Percent() {
+
+        // Arrange
+        Long userId = 1L;
+        Integer year = 2026;
+        Integer month = 10;
+
+        User user = new User();
+        ReflectionTestUtils.setField(user, "id", userId);
+
+        Category category = new Category();
+        ReflectionTestUtils.setField(category, "id", 3L);
+        category.setName("Entertainment");
+
+        Budget budget = new Budget();
+        ReflectionTestUtils.setField(budget, "id", 10L);
+
+        budget.setUser(user);
+        budget.setCategory(category);
+        budget.setYear(year);
+        budget.setMonth(month);
+        budget.setAmount(new BigDecimal("1000.00"));
+
+        when(budgetRepository.findByUserIdAndYearAndMonth(
+                userId, year, month
+        )).thenReturn(List.of(budget));
+
+        when(transactionRepository.calculateCategorySpending(
+                eq(userId),
+                eq(3L),
+                eq(TransactionType.EXPENSE),
+                eq(LocalDate.of(2026, 10, 1)),
+                eq(LocalDate.of(2026, 11, 1))
+        )).thenReturn(new BigDecimal("799.90"));
+
+        // Act
+        List<BudgetAlertResponse> alerts =
+                budgetService.getMonthlyBudgetAlerts(
+                        userId, year, month
+                );
+
+        // Assert
+        assertEquals(1, alerts.size());
+
+        BudgetAlertResponse alert = alerts.get(0);
+
+        assertEquals(
+                BudgetAlertStatus.ON_TRACK,
+                alert.status()
+        );
+
+        assertEquals(
+                0,
+                new BigDecimal("79.99")
+                        .compareTo(alert.percentageUsed())
+        );
+
+        assertEquals(
+                0,
+                new BigDecimal("200.10")
+                        .compareTo(alert.remainingAmount())
+        );
+    }
+
+    @Test
+    void shouldReturnOnTrackWhenActualSpendingIsBelow80PercentDespiteRounding() {
+
+        // Arrange
+        Long userId = 1L;
+        Integer year = 2026;
+        Integer month = 10;
+
+        User user = new User();
+        ReflectionTestUtils.setField(user, "id", userId);
+
+        Category category = new Category();
+        ReflectionTestUtils.setField(category, "id", 3L);
+        category.setName("Entertainment");
+
+        Budget budget = new Budget();
+        ReflectionTestUtils.setField(budget, "id", 10L);
+
+        budget.setUser(user);
+        budget.setCategory(category);
+        budget.setYear(year);
+        budget.setMonth(month);
+        budget.setAmount(new BigDecimal("1000.01"));
+
+        when(budgetRepository.findByUserIdAndYearAndMonth(
+                userId, year, month
+        )).thenReturn(List.of(budget));
+
+        when(transactionRepository.calculateCategorySpending(
+                eq(userId),
+                eq(3L),
+                eq(TransactionType.EXPENSE),
+                eq(LocalDate.of(2026, 10, 1)),
+                eq(LocalDate.of(2026, 11, 1))
+        )).thenReturn(new BigDecimal("799.99"));
+
+        // Act
+        List<BudgetAlertResponse> alerts =
+                budgetService.getMonthlyBudgetAlerts(
+                        userId, year, month
+                );
+
+        // Assert
+        assertEquals(1, alerts.size());
+
+        BudgetAlertResponse alert = alerts.get(0);
+
+        assertEquals(
+                BudgetAlertStatus.ON_TRACK,
+                alert.status()
+        );
+
+        assertEquals(
+                0,
+                new BigDecimal("80.00")
+                        .compareTo(alert.percentageUsed())
+        );
+
+        assertEquals(
+                0,
+                new BigDecimal("200.02")
+                        .compareTo(alert.remainingAmount())
+        );
+    }
+
+    @Test
+    void shouldNotCountNearLimitWhenActualSpendingIsBelow80Percent() {
+
+        // Arrange
+        Long userId = 1L;
+        Integer year = 2026;
+        Integer month = 10;
+
+        User user = new User();
+        ReflectionTestUtils.setField(user, "id", userId);
+
+        Category category = new Category();
+        ReflectionTestUtils.setField(category, "id", 3L);
+        category.setName("Entertainment");
+
+        Budget budget = new Budget();
+        ReflectionTestUtils.setField(budget, "id", 10L);
+
+        budget.setUser(user);
+        budget.setCategory(category);
+        budget.setYear(year);
+        budget.setMonth(month);
+        budget.setAmount(new BigDecimal("1000.01"));
+
+        when(budgetRepository.findByUserIdAndYearAndMonth(
+                userId, year, month
+        )).thenReturn(List.of(budget));
+
+        when(transactionRepository.calculateCategorySpending(
+                eq(userId),
+                eq(3L),
+                eq(TransactionType.EXPENSE),
+                eq(LocalDate.of(2026, 10, 1)),
+                eq(LocalDate.of(2026, 11, 1))
+        )).thenReturn(new BigDecimal("799.99"));
+
+        // Act
+        BudgetSummaryResponse summary =
+                budgetService.getMonthlyBudgetSummary(
+                        userId, year, month
+                );
+
+        // Assert
+        assertEquals(0, summary.nearLimitCount());
+        assertEquals(0, summary.overBudgetCount());
+
+        assertEquals(
+                0,
+                new BigDecimal("1000.01")
+                        .compareTo(summary.totalBudgeted())
+        );
+
+        assertEquals(
+                0,
+                new BigDecimal("799.99")
+                        .compareTo(summary.totalSpent())
+        );
+
+        assertEquals(
+                0,
+                new BigDecimal("200.02")
+                        .compareTo(summary.totalRemaining())
+        );
+
+        assertEquals(
+                0,
+                new BigDecimal("80.00")
+                        .compareTo(summary.overallPercentageUsed())
+        );
+    }
+
+
+    @Test
+    void shouldSortSpendingInsightsByHighestSpendingFirst() {
+
+        // Arrange
+        Long userId = 1L;
+        Integer year = 2026;
+        Integer month = 10;
+
+        User user = new User();
+        ReflectionTestUtils.setField(user, "id", userId);
+
+        // Food & Groceries category
+        Category groceries = new Category();
+        ReflectionTestUtils.setField(groceries, "id", 1L);
+        groceries.setName("Food & Groceries");
+
+        // Entertainment category
+        Category entertainment = new Category();
+        ReflectionTestUtils.setField(entertainment, "id", 3L);
+        entertainment.setName("Entertainment");
+
+        Budget groceriesBudget = new Budget();
+        ReflectionTestUtils.setField(groceriesBudget, "id", 11L);
+        groceriesBudget.setUser(user);
+        groceriesBudget.setCategory(groceries);
+        groceriesBudget.setYear(year);
+        groceriesBudget.setMonth(month);
+        groceriesBudget.setAmount(new BigDecimal("600.00"));
+
+        Budget entertainmentBudget = new Budget();
+        ReflectionTestUtils.setField(entertainmentBudget, "id", 10L);
+        entertainmentBudget.setUser(user);
+        entertainmentBudget.setCategory(entertainment);
+        entertainmentBudget.setYear(year);
+        entertainmentBudget.setMonth(month);
+        entertainmentBudget.setAmount(new BigDecimal("500.00"));
+
+        // Deliberately return Groceries first from the repository
+        when(budgetRepository.findByUserIdAndYearAndMonth(
+                userId, year, month
+        )).thenReturn(List.of(
+                groceriesBudget,
+                entertainmentBudget
+        ));
+
+        when(transactionRepository.calculateCategorySpending(
+                eq(userId),
+                eq(1L),
+                eq(TransactionType.EXPENSE),
+                eq(LocalDate.of(2026, 10, 1)),
+                eq(LocalDate.of(2026, 11, 1))
+        )).thenReturn(new BigDecimal("420.00"));
+
+        when(transactionRepository.calculateCategorySpending(
+                eq(userId),
+                eq(3L),
+                eq(TransactionType.EXPENSE),
+                eq(LocalDate.of(2026, 10, 1)),
+                eq(LocalDate.of(2026, 11, 1))
+        )).thenReturn(new BigDecimal("575.00"));
+
+        // Act
+        List<SpendingInsightResponse> insights =
+                budgetService.getMonthlySpendingInsights(
+                        userId, year, month
+                );
+
+        // Assert
+        assertEquals(2, insights.size());
+
+        // Entertainment should appear first ($575 spent)
+        SpendingInsightResponse first = insights.get(0);
+
+        assertEquals("Entertainment", first.categoryName());
+        assertEquals(3L, first.categoryId());
+        assertEquals(
+                0,
+                new BigDecimal("575.00")
+                        .compareTo(first.spentAmount())
+        );
+        assertTrue(first.overBudget());
+
+        // Groceries should appear second ($420 spent)
+        SpendingInsightResponse second = insights.get(1);
+
+        assertEquals("Food & Groceries", second.categoryName());
+        assertEquals(1L, second.categoryId());
+        assertEquals(
+                0,
+                new BigDecimal("420.00")
+                        .compareTo(second.spentAmount())
+        );
+        assertFalse(second.overBudget());
+    }
+
+
+    @Test
+    void shouldReturnEmptySpendingInsightsWhenNoBudgetsExist() {
+
+        // Arrange
+        Long userId = 1L;
+        Integer year = 2026;
+        Integer month = 12;
+
+        when(budgetRepository.findByUserIdAndYearAndMonth(
+                userId, year, month
+        )).thenReturn(List.of());
+
+        // Act
+        List<SpendingInsightResponse> insights =
+                budgetService.getMonthlySpendingInsights(
+                        userId, year, month
+                );
+
+        // Assert
+        assertNotNull(insights);
+        assertTrue(insights.isEmpty());
+
+        verify(budgetRepository).findByUserIdAndYearAndMonth(
+                userId, year, month
+        );
+
+        verifyNoInteractions(transactionRepository);
+    }
+
+
+    @Test
+    void shouldCalculateSpendingInsightAmountsCorrectly() {
+
+        // Arrange
+        Long userId = 1L;
+        Integer year = 2026;
+        Integer month = 10;
+
+        User user = new User();
+        ReflectionTestUtils.setField(user, "id", userId);
+
+        Category category = new Category();
+        ReflectionTestUtils.setField(category, "id", 1L);
+        category.setName("Food & Groceries");
+
+        Budget budget = new Budget();
+        ReflectionTestUtils.setField(budget, "id", 11L);
+
+        budget.setUser(user);
+        budget.setCategory(category);
+        budget.setYear(year);
+        budget.setMonth(month);
+        budget.setAmount(new BigDecimal("600.00"));
+
+        when(budgetRepository.findByUserIdAndYearAndMonth(
+                userId, year, month
+        )).thenReturn(List.of(budget));
+
+        when(transactionRepository.calculateCategorySpending(
+                eq(userId),
+                eq(1L),
+                eq(TransactionType.EXPENSE),
+                eq(LocalDate.of(2026, 10, 1)),
+                eq(LocalDate.of(2026, 11, 1))
+        )).thenReturn(new BigDecimal("425.50"));
+
+        // Act
+        List<SpendingInsightResponse> insights =
+                budgetService.getMonthlySpendingInsights(
+                        userId, year, month
+                );
+
+        // Assert
+        assertEquals(1, insights.size());
+
+        SpendingInsightResponse insight = insights.get(0);
+
+        assertEquals(1L, insight.categoryId());
+        assertEquals("Food & Groceries", insight.categoryName());
+
+        assertEquals(
+                0,
+                new BigDecimal("600.00")
+                        .compareTo(insight.budgetAmount())
+        );
+
+        assertEquals(
+                0,
+                new BigDecimal("425.50")
+                        .compareTo(insight.spentAmount())
+        );
+
+        assertEquals(
+                0,
+                new BigDecimal("174.50")
+                        .compareTo(insight.remainingAmount())
+        );
+
+        assertEquals(
+                0,
+                new BigDecimal("70.92")
+                        .compareTo(insight.percentageUsed())
+        );
+
+        assertFalse(insight.overBudget());
+    }
+
+
+
 }

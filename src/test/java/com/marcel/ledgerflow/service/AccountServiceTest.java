@@ -4,7 +4,7 @@ package com.marcel.ledgerflow.service;
 import com.marcel.ledgerflow.dto.AccountResponse;
 import com.marcel.ledgerflow.dto.CreateAccountRequest;
 import com.marcel.ledgerflow.entity.Account;
-import com.marcel.ledgerflow.entity.AccountType;
+import com.marcel.ledgerflow.enums.AccountType;
 import com.marcel.ledgerflow.entity.User;
 import com.marcel.ledgerflow.repository.AccountRepository;
 import com.marcel.ledgerflow.repository.UserRepository;
@@ -28,7 +28,7 @@ import com.marcel.ledgerflow.exception.AccountNotFoundException;
 import com.marcel.ledgerflow.dto.UpdateAccountRequest;
 import org.mockito.ArgumentCaptor;
 import com.marcel.ledgerflow.repository.TransactionRepository;
-import com.marcel.ledgerflow.entity.TransactionType;
+import com.marcel.ledgerflow.enums.TransactionType;
 import org.junit.jupiter.api.BeforeEach;
 
 

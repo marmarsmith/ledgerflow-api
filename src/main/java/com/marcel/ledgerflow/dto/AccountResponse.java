@@ -1,6 +1,6 @@
 package com.marcel.ledgerflow.dto;
 
-import com.marcel.ledgerflow.entity.AccountType;
+import com.marcel.ledgerflow.enums.AccountType;
 
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;

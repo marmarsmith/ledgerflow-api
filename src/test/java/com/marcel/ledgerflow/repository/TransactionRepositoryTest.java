@@ -1,9 +1,9 @@
 package com.marcel.ledgerflow.repository;
 
 import com.marcel.ledgerflow.entity.Account;
-import com.marcel.ledgerflow.entity.AccountType;
+import com.marcel.ledgerflow.enums.AccountType;
 import com.marcel.ledgerflow.entity.Transaction;
-import com.marcel.ledgerflow.entity.TransactionType;
+import com.marcel.ledgerflow.enums.TransactionType;
 import com.marcel.ledgerflow.entity.User;
 
 import org.junit.jupiter.api.Test;
@@ -22,7 +22,6 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.*;
 
 import com.marcel.ledgerflow.entity.Category;
-import com.marcel.ledgerflow.repository.CategoryRepository;
 
 @SpringBootTest
 @Testcontainers

@@ -3,7 +3,7 @@ package com.marcel.ledgerflow.controller;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.marcel.ledgerflow.dto.CategoryResponse;
 import com.marcel.ledgerflow.dto.CreateCategoryRequest;
-import com.marcel.ledgerflow.entity.TransactionType;
+import com.marcel.ledgerflow.enums.TransactionType;
 import com.marcel.ledgerflow.exception.GlobalExceptionHandler;
 import com.marcel.ledgerflow.service.CategoryService;
 
