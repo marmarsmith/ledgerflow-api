@@ -1,8 +1,9 @@
 
-package com.marcel.ledgerflow.service;
+package com.marcel.ledgerflow.integration;
 
 import com.marcel.ledgerflow.dto.LoginResponse;
 import com.marcel.ledgerflow.entity.User;
+import com.marcel.ledgerflow.service.JwtService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;

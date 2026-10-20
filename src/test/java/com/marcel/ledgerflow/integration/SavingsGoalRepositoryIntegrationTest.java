@@ -1,9 +1,12 @@
-package com.marcel.ledgerflow.repository;
+package com.marcel.ledgerflow.integration;
 
 import com.marcel.ledgerflow.entity.SavingsContribution;
 import com.marcel.ledgerflow.entity.SavingsGoal;
 import com.marcel.ledgerflow.entity.User;
 
+import com.marcel.ledgerflow.repository.SavingsContributionRepository;
+import com.marcel.ledgerflow.repository.SavingsGoalRepository;
+import com.marcel.ledgerflow.repository.UserRepository;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;

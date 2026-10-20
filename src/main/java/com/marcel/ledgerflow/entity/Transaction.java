@@ -38,6 +38,10 @@ public class Transaction {
     @JoinColumn(name = "category_id")
     private Category category;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "recurring_transaction_id")
+    private RecurringTransaction recurringTransaction;
+
     @Generated(event = EventType.INSERT)
     @Column(
             name = "created_at",
@@ -98,6 +102,15 @@ public class Transaction {
     public Category getCategory() {return category; }
 
     public void setCategory(Category category) {this.category = category; }
+
+    public RecurringTransaction getRecurringTransaction() {
+        return recurringTransaction;
+    }
+
+    public void setRecurringTransaction(RecurringTransaction recurringTransaction) {
+        this.recurringTransaction = recurringTransaction;
+    }
+
 
     public OffsetDateTime getCreatedAt() {
         return createdAt;
