@@ -118,4 +118,24 @@ public class GlobalExceptionHandler {
                 .body(Map.of("error", ex.getMessage()));
     }
 
+    @ExceptionHandler(AccountHasTransactionsException.class)
+    public ResponseEntity<Map<String, String>> handleAccountHasTransactions(
+            AccountHasTransactionsException ex
+    ) {
+        return ResponseEntity
+                .status(HttpStatus.CONFLICT)
+                .body(Map.of("error", ex.getMessage()));
+    }
+
+    @ExceptionHandler(AccountHasRecurringTransactionsException.class)
+    public ResponseEntity<Map<String, String>> handleAccountHasRecurringTransactions(
+            AccountHasRecurringTransactionsException ex
+    ) {
+        return ResponseEntity
+                .status(HttpStatus.CONFLICT)
+                .body(Map.of("error", ex.getMessage()));
+    }
+
+
+
 }

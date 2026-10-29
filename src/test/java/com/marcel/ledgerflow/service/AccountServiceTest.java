@@ -6,7 +6,10 @@ import com.marcel.ledgerflow.dto.CreateAccountRequest;
 import com.marcel.ledgerflow.entity.Account;
 import com.marcel.ledgerflow.enums.AccountType;
 import com.marcel.ledgerflow.entity.User;
+import com.marcel.ledgerflow.exception.AccountHasRecurringTransactionsException;
+import com.marcel.ledgerflow.exception.AccountHasTransactionsException;
 import com.marcel.ledgerflow.repository.AccountRepository;
+import com.marcel.ledgerflow.repository.RecurringTransactionRepository;
 import com.marcel.ledgerflow.repository.UserRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -36,6 +39,7 @@ import org.junit.jupiter.api.BeforeEach;
 @ExtendWith(MockitoExtension.class)
 class AccountServiceTest {
 
+
     @Mock
     private AccountRepository accountRepository;
 
@@ -45,8 +49,12 @@ class AccountServiceTest {
     @Mock
     private TransactionRepository transactionRepository;
 
+    @Mock
+    private RecurringTransactionRepository recurringTransactionRepository;
+
     @InjectMocks
     private AccountService accountService;
+
 
     @BeforeEach
     void setUp() {
@@ -322,11 +330,18 @@ class AccountServiceTest {
         when(accountRepository.findByIdAndUserId(accountId, userId))
                 .thenReturn(Optional.of(account));
 
+        when(transactionRepository.existsByAccountId(accountId))
+                .thenReturn(false);
+
+
         // Act
         accountService.deleteAccount(accountId, userId);
 
         // Assert
         verify(accountRepository).findByIdAndUserId(accountId, userId);
+
+        verify(transactionRepository).existsByAccountId(accountId);
+
         verify(accountRepository).delete(account);
         verifyNoInteractions(userRepository);
     }
@@ -420,5 +435,94 @@ class AccountServiceTest {
                 response.currentBalance()
         );
     }
+
+
+    @Test
+    void shouldNotDeleteAccountWhenItHasTransactions() {
+        // Arrange
+        Long accountId = 10L;
+        Long userId = 5L;
+
+        Account account = new Account();
+        account.setId(accountId);
+        account.setName("My Checking Account");
+        account.setType(AccountType.CHECKING);
+        account.setInitialBalance(new BigDecimal("1500.00"));
+
+        when(accountRepository.findByIdAndUserId(accountId, userId))
+                .thenReturn(Optional.of(account));
+
+        when(transactionRepository.existsByAccountId(accountId))
+                .thenReturn(true);
+
+        // Act & Assert
+        AccountHasTransactionsException exception = assertThrows(
+                AccountHasTransactionsException.class,
+                () -> accountService.deleteAccount(accountId, userId)
+        );
+
+        assertEquals(
+                "Cannot delete an account that contains transactions.",
+                exception.getMessage()
+        );
+
+        verify(accountRepository)
+                .findByIdAndUserId(accountId, userId);
+
+        verify(transactionRepository)
+                .existsByAccountId(accountId);
+
+        verify(accountRepository, never())
+                .delete(any(Account.class));
+    }
+
+    @Test
+    void shouldNotDeleteAccountWhenItHasRecurringTransactions() {
+        // Arrange
+        Long accountId = 10L;
+        Long userId = 5L;
+
+        Account account = new Account();
+        account.setId(accountId);
+        account.setName("My Checking Account");
+        account.setType(AccountType.CHECKING);
+        account.setInitialBalance(new BigDecimal("1500.00"));
+
+        when(accountRepository.findByIdAndUserId(accountId, userId))
+                .thenReturn(Optional.of(account));
+
+        // No completed transactions
+        when(transactionRepository.existsByAccountId(accountId))
+                .thenReturn(false);
+
+        // Account has a recurring transaction schedule
+        when(recurringTransactionRepository.existsByAccountId(accountId))
+                .thenReturn(true);
+
+        // Act & Assert
+        AccountHasRecurringTransactionsException exception = assertThrows(
+                AccountHasRecurringTransactionsException.class,
+                () -> accountService.deleteAccount(accountId, userId)
+        );
+
+        assertEquals(
+                "Cannot delete an account that has recurring transactions.",
+                exception.getMessage()
+        );
+
+        verify(accountRepository)
+                .findByIdAndUserId(accountId, userId);
+
+        verify(transactionRepository)
+                .existsByAccountId(accountId);
+
+        verify(recurringTransactionRepository)
+                .existsByAccountId(accountId);
+
+        verify(accountRepository, never())
+                .delete(any(Account.class));
+    }
+
+
 
 }

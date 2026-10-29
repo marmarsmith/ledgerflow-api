@@ -5,7 +5,10 @@ import com.marcel.ledgerflow.dto.AccountResponse;
 import com.marcel.ledgerflow.dto.CreateAccountRequest;
 import com.marcel.ledgerflow.entity.Account;
 import com.marcel.ledgerflow.entity.User;
+import com.marcel.ledgerflow.exception.AccountHasRecurringTransactionsException;
+import com.marcel.ledgerflow.exception.AccountHasTransactionsException;
 import com.marcel.ledgerflow.repository.AccountRepository;
+import com.marcel.ledgerflow.repository.RecurringTransactionRepository;
 import com.marcel.ledgerflow.repository.UserRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -23,16 +26,21 @@ public class AccountService {
     private final AccountRepository accountRepository;
     private final UserRepository userRepository;
     private final TransactionRepository transactionRepository;
+    private final RecurringTransactionRepository recurringTransactionRepository;
+
 
     public AccountService(
             AccountRepository accountRepository,
             UserRepository userRepository,
-            TransactionRepository transactionRepository
+            TransactionRepository transactionRepository,
+            RecurringTransactionRepository recurringTransactionRepository
     ) {
         this.accountRepository = accountRepository;
         this.userRepository = userRepository;
         this.transactionRepository = transactionRepository;
+        this.recurringTransactionRepository = recurringTransactionRepository;
     }
+
 
     @Transactional
     public AccountResponse createAccount(
@@ -97,17 +105,29 @@ public class AccountService {
         return toAccountResponse(updatedAccount);
     }
 
+
+
     @Transactional
     public void deleteAccount(Long accountId, Long userId) {
 
-        // Find the account and verify ownership
         Account account = accountRepository
                 .findByIdAndUserId(accountId, userId)
                 .orElseThrow(AccountNotFoundException::new);
 
-        // Delete the account
+        // Protect completed transaction history
+        if (transactionRepository.existsByAccountId(accountId)) {
+            throw new AccountHasTransactionsException();
+        }
+
+        // Protect recurring transaction schedules
+        if (recurringTransactionRepository.existsByAccountId(accountId)) {
+            throw new AccountHasRecurringTransactionsException();
+        }
+
         accountRepository.delete(account);
     }
+
+
 
     private AccountResponse toAccountResponse(Account account) {
 

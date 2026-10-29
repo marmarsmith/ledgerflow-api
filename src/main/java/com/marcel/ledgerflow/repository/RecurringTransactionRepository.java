@@ -22,6 +22,8 @@ public interface RecurringTransactionRepository
             Long userId
     );
 
+    boolean existsByAccountId(Long accountId);
+
     List<RecurringTransaction>
     findByActiveTrueAndNextOccurrenceDateLessThanEqual(
             LocalDate date

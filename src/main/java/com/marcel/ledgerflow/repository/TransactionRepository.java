@@ -17,6 +17,9 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long> 
 
     Optional<Transaction> findByIdAndAccountId(Long transactionId, Long accountId);
 
+    boolean existsByAccountId(Long accountId);
+
+
     boolean existsByRecurringTransactionIdAndTransactionDate(
             Long recurringTransactionId,
             LocalDate transactionDate
