@@ -151,4 +151,33 @@ class RecurringTransactionSchedulerTest {
         verifyNoMoreInteractions(processorService);
     }
 
+    @Test
+    void processDueRecurringTransactionsOnStartup_processesOverdueSchedules() {
+
+        LocalDate today = LocalDate.of(2026, 11, 15);
+
+        RecurringTransaction overdueTransaction =
+                new RecurringTransaction();
+
+        ReflectionTestUtils.setField(
+                overdueTransaction,
+                "id",
+                4L
+        );
+
+        when(recurringTransactionRepository
+                .findByActiveTrueAndNextOccurrenceDateLessThanEqual(today))
+                .thenReturn(List.of(overdueTransaction));
+
+        scheduler.processDueRecurringTransactionsOnStartup();
+
+        verify(recurringTransactionRepository)
+                .findByActiveTrueAndNextOccurrenceDateLessThanEqual(today);
+
+        verify(processorService)
+                .processRecurringTransaction(4L);
+
+        verifyNoMoreInteractions(processorService);
+    }
+
 }

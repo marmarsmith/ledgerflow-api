@@ -10,6 +10,8 @@ import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
+import org.springframework.boot.context.event.ApplicationReadyEvent;
+import org.springframework.context.event.EventListener;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.util.List;
@@ -35,7 +37,13 @@ public class RecurringTransactionScheduler {
     }
 
 
+    @EventListener(ApplicationReadyEvent.class)
+    public void processDueRecurringTransactionsOnStartup() {
 
+        log.info("Checking for overdue recurring transactions on application startup");
+
+        processDueRecurringTransactions();
+    }
 
 
     @Scheduled(
