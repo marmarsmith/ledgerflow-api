@@ -31,10 +31,12 @@ public class JwtService {
 
         Instant now = Instant.now();
 
+
         JwtClaimsSet claims = JwtClaimsSet.builder()
                 .subject(user.getId().toString())
                 .issuedAt(now)
                 .expiresAt(now.plusSeconds(expirationSeconds))
+                .claim("tokenVersion", user.getTokenVersion())
                 .build();
 
         JwsHeader header = JwsHeader
