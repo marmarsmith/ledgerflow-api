@@ -5,6 +5,7 @@ import jakarta.persistence.*;
 import java.time.OffsetDateTime;
 import org.hibernate.annotations.Generated;
 import org.hibernate.generator.EventType;
+import jakarta.persistence.Version;
 
 @Entity
 @Table(name = "users")
@@ -25,6 +26,13 @@ public class User {
 
     @Column(name = "last_name", nullable = false)
     private String lastName;
+
+    @Column(name = "token_version", nullable = false)
+    private Long tokenVersion = 0L;
+
+    @Version
+    @Column(name = "entity_version", nullable = false)
+    private Long entityVersion = 0L;
 
     @Generated(event = EventType.INSERT)
     @Column(
@@ -86,4 +94,13 @@ public class User {
     public void setId(Long id) {
         this.id = id;
     }
+
+    public Long getTokenVersion() {
+        return tokenVersion;
+    }
+
+    public void setTokenVersion(Long tokenVersion) {
+        this.tokenVersion = tokenVersion;
+    }
+
 }
