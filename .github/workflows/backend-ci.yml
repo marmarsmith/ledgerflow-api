@@ -81,6 +81,7 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+
   deploy:
     name: Deploy to AWS Lightsail
     runs-on: ubuntu-latest
@@ -101,11 +102,6 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Verify deployment configuration
-        run: |
-          test -f deploy/compose.prod.yaml
-          echo "Production deployment configuration found."
-
       - name: Configure SSH
         env:
           SSH_PRIVATE_KEY: ${{ secrets.LIGHTSAIL_SSH_KEY }}
@@ -113,29 +109,17 @@ jobs:
         run: |
           mkdir -p ~/.ssh
           chmod 700 ~/.ssh
-
           printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/tally-deploy
           chmod 600 ~/.ssh/tally-deploy
-
           printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
           chmod 600 ~/.ssh/known_hosts
 
-      - name: Verify Lightsail connection
+      - name: Upload deployment configuration
         env:
           LIGHTSAIL_HOST: ${{ vars.LIGHTSAIL_HOST }}
         run: |
-          ssh \
-            -i ~/.ssh/tally-deploy \
-            -o StrictHostKeyChecking=yes \
-            -o BatchMode=yes \
-            -o IdentitiesOnly=yes \
-            ubuntu@"$LIGHTSAIL_HOST" \
-            "cd /opt/tally && sudo -n docker compose -p tally --env-file /opt/tally/.env -f /opt/tally/compose.prod.yaml ps"
+          test -f deploy/compose.prod.yaml
 
-      - name: Upload production Compose configuration
-        env:
-          LIGHTSAIL_HOST: ${{ vars.LIGHTSAIL_HOST }}
-        run: |
           scp \
             -i ~/.ssh/tally-deploy \
             -o StrictHostKeyChecking=yes \
@@ -144,9 +128,10 @@ jobs:
             deploy/compose.prod.yaml \
             ubuntu@"$LIGHTSAIL_HOST":/opt/tally/compose.prod.yaml.pending
 
-      - name: Validate production Compose configuration
+      - name: Deploy and verify application
         env:
           LIGHTSAIL_HOST: ${{ vars.LIGHTSAIL_HOST }}
+          IMAGE: ghcr.io/marmarsmith/ledgerflow-api:sha-${{ github.sha }}
         run: |
           ssh \
             -i ~/.ssh/tally-deploy \
@@ -154,6 +139,107 @@ jobs:
             -o BatchMode=yes \
             -o IdentitiesOnly=yes \
             ubuntu@"$LIGHTSAIL_HOST" \
-            "cd /opt/tally && sudo -n docker compose -p tally --env-file /opt/tally/.env -f /opt/tally/compose.prod.yaml.pending config --quiet"
+            "bash -se" -- "$IMAGE" <<'REMOTE'
+          set -Eeuo pipefail
 
-          echo "Production Compose configuration validated successfully."
+          IMAGE="$1"
+          cd /opt/tally
+
+          COMPOSE=(sudo -n docker compose
+            -p tally
+            --env-file /opt/tally/.env
+            -f /opt/tally/compose.prod.yaml)
+
+          echo "Validating pending production configuration..."
+          sudo -n docker compose \
+            -p tally \
+            --env-file /opt/tally/.env \
+            -f /opt/tally/compose.prod.yaml.pending \
+            config --quiet
+
+          PREVIOUS_IMAGE="$(sudo -n docker inspect \
+            --format '{{.Config.Image}}' tally-api-1)"
+
+          echo "Backing up current configuration..."
+          cp compose.prod.yaml compose.prod.yaml.backup
+
+          rollback() {
+            echo "Deployment failed. Attempting rollback..."
+
+            cp compose.prod.yaml.backup compose.prod.yaml
+
+            if sudo -n env TALLY_IMAGE="$PREVIOUS_IMAGE" \
+              docker compose \
+              -p tally \
+              --env-file /opt/tally/.env \
+              -f /opt/tally/compose.prod.yaml \
+              up -d --no-deps api; then
+              echo "Previous API configuration restored."
+            else
+              echo "WARNING: Automatic rollback failed."
+            fi
+          }
+
+          trap rollback ERR
+
+          echo "Activating production configuration..."
+          mv compose.prod.yaml.pending compose.prod.yaml
+
+          echo "Pulling new API image..."
+          sudo -n env TALLY_IMAGE="$IMAGE" \
+            docker compose \
+            -p tally \
+            --env-file /opt/tally/.env \
+            -f /opt/tally/compose.prod.yaml \
+            pull api
+
+          echo "Updating API container..."
+          sudo -n env TALLY_IMAGE="$IMAGE" \
+            docker compose \
+            -p tally \
+            --env-file /opt/tally/.env \
+            -f /opt/tally/compose.prod.yaml \
+            up -d --no-deps api
+
+          echo "Waiting for application startup..."
+
+          READY=false
+
+          for attempt in $(seq 1 30); do
+            HTTP_STATUS="$(curl -s \
+              -o /dev/null \
+              -w '%{http_code}' \
+              http://127.0.0.1:8081/api/accounts || true)"
+
+            if [ "$HTTP_STATUS" = "401" ]; then
+              READY=true
+              break
+            fi
+
+            echo "Attempt $attempt/30: HTTP $HTTP_STATUS"
+            sleep 5
+          done
+
+          if [ "$READY" != "true" ]; then
+            echo "ERROR: API readiness verification failed."
+            false
+          fi
+
+          echo "Verifying deployed image..."
+
+          ACTUAL_IMAGE="$(sudo -n docker inspect \
+            --format '{{.Config.Image}}' tally-api-1)"
+
+          if [ "$ACTUAL_IMAGE" != "$IMAGE" ]; then
+            echo "ERROR: Unexpected deployed image."
+            false
+          fi
+
+          trap - ERR
+
+          echo "Deployment successful!"
+          echo "Image: $ACTUAL_IMAGE"
+
+          "${COMPOSE[@]}" ps
+          REMOTE
+  
