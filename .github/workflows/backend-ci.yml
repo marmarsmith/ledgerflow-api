@@ -105,3 +105,29 @@ jobs:
         run: |
           test -f deploy/compose.prod.yaml
           echo "Production deployment configuration found."
+
+      - name: Configure SSH
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.LIGHTSAIL_SSH_KEY }}
+          SSH_KNOWN_HOSTS: ${{ vars.LIGHTSAIL_KNOWN_HOSTS }}
+        run: |
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+
+          printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/tally-deploy
+          chmod 600 ~/.ssh/tally-deploy
+
+          printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+
+      - name: Verify Lightsail connection
+        env:
+          LIGHTSAIL_HOST: ${{ vars.LIGHTSAIL_HOST }}
+        run: |
+          ssh \
+            -i ~/.ssh/tally-deploy \
+            -o StrictHostKeyChecking=yes \
+            -o BatchMode=yes \
+            -o IdentitiesOnly=yes \
+            ubuntu@"$LIGHTSAIL_HOST" \
+            "cd /opt/tally && sudo -n docker compose -p tally --env-file /opt/tally/.env -f /opt/tally/compose.prod.yaml ps"
