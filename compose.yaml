@@ -1,0 +1,44 @@
+
+services:
+  postgres:
+    image: postgres:17
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ledgerflow_db
+      POSTGRES_USER: tally
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD must be set}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U tally -d ledgerflow_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - tally-network
+
+  api:
+    image: tally-api:local
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DB_URL: jdbc:postgresql://postgres:5432/ledgerflow_db
+      DB_USERNAME: tally
+      DB_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD must be set}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET must be set}
+      JPA_SHOW_SQL: "false"
+      LEDGERFLOW_RECURRING_ZONE: UTC
+      JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=65.0"
+    ports:
+      - "127.0.0.1:8081:8080"
+    networks:
+      - tally-network
+
+volumes:
+  postgres_data:
+
+networks:
+  tally-network:
+    driver: bridge
