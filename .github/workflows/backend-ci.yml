@@ -131,3 +131,29 @@ jobs:
             -o IdentitiesOnly=yes \
             ubuntu@"$LIGHTSAIL_HOST" \
             "cd /opt/tally && sudo -n docker compose -p tally --env-file /opt/tally/.env -f /opt/tally/compose.prod.yaml ps"
+
+      - name: Upload production Compose configuration
+        env:
+          LIGHTSAIL_HOST: ${{ vars.LIGHTSAIL_HOST }}
+        run: |
+          scp \
+            -i ~/.ssh/tally-deploy \
+            -o StrictHostKeyChecking=yes \
+            -o BatchMode=yes \
+            -o IdentitiesOnly=yes \
+            deploy/compose.prod.yaml \
+            ubuntu@"$LIGHTSAIL_HOST":/opt/tally/compose.prod.yaml.pending
+
+      - name: Validate production Compose configuration
+        env:
+          LIGHTSAIL_HOST: ${{ vars.LIGHTSAIL_HOST }}
+        run: |
+          ssh \
+            -i ~/.ssh/tally-deploy \
+            -o StrictHostKeyChecking=yes \
+            -o BatchMode=yes \
+            -o IdentitiesOnly=yes \
+            ubuntu@"$LIGHTSAIL_HOST" \
+            "cd /opt/tally && sudo -n docker compose -p tally --env-file /opt/tally/.env -f /opt/tally/compose.prod.yaml.pending config --quiet"
+
+          echo "Production Compose configuration validated successfully."
